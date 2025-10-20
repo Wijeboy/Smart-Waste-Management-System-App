@@ -257,3 +257,61 @@ exports.updateProfile = async (req, res) => {
     });
   }
 };
+
+// @desc    Admin login with hardcoded credentials
+// @route   POST /api/auth/admin-login
+// @access  Public
+exports.adminLogin = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // Hardcoded admin credentials
+    const ADMIN_USERNAME = 'admin';
+    const ADMIN_PASSWORD = 'admin123';
+
+    // Validate credentials
+    if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid admin credentials'
+      });
+    }
+
+    // Create a mock admin user object for token generation
+    const adminUser = {
+      id: 'admin-' + Date.now(),
+      firstName: 'Admin',
+      lastName: 'User',
+      username: 'admin',
+      email: 'admin@wastesystem.com',
+      role: 'admin'
+    };
+
+    // Generate token
+    const token = jwt.sign(
+      { 
+        id: adminUser.id,
+        role: 'admin',
+        username: adminUser.username
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRE }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Admin login successful',
+      data: {
+        user: adminUser,
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Admin login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error logging in as admin',
+      error: error.message
+    });
+  }
+};
