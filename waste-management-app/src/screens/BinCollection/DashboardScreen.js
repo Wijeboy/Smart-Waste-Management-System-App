@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, RefreshControl, Modal, Animated } from 'react-native';
 import { COLORS, FONTS } from '../../constants/theme';
 import { useRoute } from '../../context/RouteContext';
 import { useUser } from '../../context/UserContext';
@@ -54,22 +54,54 @@ const DashboardScreen = ({ navigation }) => {
   
   const [currentTime, setCurrentTime] = useState(getCurrentTime());
   const [statusBarTime, setStatusBarTime] = useState(getCurrentTime());
+  const [currentDate, setCurrentDate] = useState(new Date().toLocaleDateString('en-US', { 
+    weekday: 'short', 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric' 
+  }));
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [scaleAnim] = useState(new Animated.Value(0));
   
   const stats = getStatistics();
   const greeting = getGreeting();
   const userName = getUserFirstName();
+  
+  // Check if all bins are collected
+  const allCollected = stats.total > 0 && stats.completed === stats.total;
 
-  // Update clock every minute
+  // Update clock and date every minute
   useEffect(() => {
     const timer = setInterval(() => {
       const newTime = getCurrentTime();
       setCurrentTime(newTime);
       setStatusBarTime(newTime);
+      setCurrentDate(new Date().toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      }));
     }, 60000);
     return () => clearInterval(timer);
   }, []);
+  
+  // Show completion animation when all bins are collected
+  useEffect(() => {
+    if (allCollected && stats.total > 0) {
+      setShowCompletionModal(true);
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      setShowCompletionModal(false);
+      scaleAnim.setValue(0);
+    }
+  }, [allCollected, stats.total]);
 
   // Pull to refresh handler
   const onRefresh = () => {
@@ -102,6 +134,33 @@ const DashboardScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container} testID="dashboard-container">
+      {/* Completion Animation Modal */}
+      <Modal
+        visible={showCompletionModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.completionOverlay}>
+          <Animated.View 
+            style={[
+              styles.completionCard,
+              {
+                transform: [{ scale: scaleAnim }]
+              }
+            ]}
+          >
+            <Text style={styles.completionIcon}>🎉</Text>
+            <Text style={styles.completionTitle}>Amazing Work!</Text>
+            <Text style={styles.completionMessage}>All bins collected for today</Text>
+            <TouchableOpacity 
+              style={styles.completionButton}
+              onPress={() => setShowCompletionModal(false)}
+            >
+              <Text style={styles.completionButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         testID="dashboard-scroll-view"
@@ -132,6 +191,9 @@ const DashboardScreen = ({ navigation }) => {
             </Text>
             <Text style={styles.routeInfo}>
               {routeInfo.routeNumber} - {routeInfo.district}
+            </Text>
+            <Text style={styles.currentDate} testID="current-date">
+              📅 {currentDate}
             </Text>
             <Text style={styles.currentTime} testID="current-time">
               🕐 {currentTime}
@@ -224,11 +286,11 @@ const DashboardScreen = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Today's Collections by Type</Text>
           {collectionsByType.map((collection) => (
             <CollectionTypeItem
-              key={collection.id}
+              key={collection.type}
               type={collection.type}
               count={collection.count}
-              icon={collection.icon === 'trash' ? '🗑️' : 
-                    collection.icon === 'recycle' ? '♻️' : '🍂'}
+              weight={collection.weight}
+              icon={collection.icon}
               onPress={() => {
                 console.log('Navigate to:', collection.type);
               }}
@@ -317,6 +379,13 @@ const styles = StyleSheet.create({
   routeInfo: {
     fontSize: 14,
     fontWeight: FONTS.weight.regular,
+    color: COLORS.textPrimary,
+    opacity: 0.9,
+    marginBottom: 4,
+  },
+  currentDate: {
+    fontSize: 14,
+    fontWeight: FONTS.weight.semiBold,
     color: COLORS.textPrimary,
     opacity: 0.9,
     marginBottom: 4,
@@ -465,6 +534,57 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: COLORS.primaryDarkTeal,
     fontWeight: 'bold',
+  },
+
+  // Completion Modal
+  completionOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  completionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    width: '85%',
+    maxWidth: 350,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  completionIcon: {
+    fontSize: 80,
+    marginBottom: 20,
+  },
+  completionTitle: {
+    fontSize: 24,
+    fontWeight: FONTS.weight.bold,
+    color: COLORS.primaryDarkTeal,
+    marginBottom: 12,
+  },
+  completionMessage: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  completionButton: {
+    backgroundColor: COLORS.headerTeal,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 12,
+  },
+  completionButtonText: {
+    fontSize: 16,
+    fontWeight: FONTS.weight.semiBold,
+    color: COLORS.textPrimary,
   },
 });
 

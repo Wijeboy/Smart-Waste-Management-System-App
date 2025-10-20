@@ -40,38 +40,75 @@ const BinDetailsModal = ({
   onClose,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [status, setStatus] = useState(initialStatus || 'pending');
+  // Collection status: 'pending', 'completed', or 'issue'
+  const [collectionStatus, setCollectionStatus] = useState(
+    initialStatus === 'maintenance' ? 'issue' :
+    initialFillLevel >= 50 || initialStatus === 'full' ? 'pending' : 'completed'
+  );
   const [weight, setWeight] = useState(initialWeight?.toString() || '0');
   const [fillLevel, setFillLevel] = useState(initialFillLevel?.toString() || '0');
+  const [complaint, setComplaint] = useState('');
 
   // Update local state when props change
   useEffect(() => {
-    setStatus(initialStatus || 'pending');
+    setCollectionStatus(
+      initialStatus === 'maintenance' ? 'issue' :
+      initialFillLevel >= 50 || initialStatus === 'full' ? 'pending' : 'completed'
+    );
     setWeight(initialWeight?.toString() || '0');
     setFillLevel(initialFillLevel?.toString() || '0');
   }, [initialStatus, initialWeight, initialFillLevel]);
 
   const handleUpdate = () => {
     if (onUpdate) {
-      onUpdate({
-        status,
-        weight: parseFloat(weight) || 0,
+      // Map collection status to bin updates
+      const updates = {
         fillLevel: parseInt(fillLevel) || 0,
-      });
+        weight: parseFloat(weight) || 0,
+      };
+      
+      // Handle different collection statuses
+      if (collectionStatus === 'completed') {
+        // Reset bin when marked as completed
+        updates.fillLevel = 0;
+        updates.weight = 0;
+        updates.status = 'active';
+        updates.lastCollection = new Date().toISOString();
+      } else if (collectionStatus === 'issue') {
+        // Set to maintenance status with complaint
+        updates.status = 'maintenance';
+        if (complaint.trim()) {
+          updates.notes = complaint.trim();
+        }
+      } else {
+        // Pending: ensure fillLevel is high enough to show as pending
+        // If fillLevel is too low (< 50), set it to 85% as default
+        if (updates.fillLevel < 50) {
+          console.log('⚠️ FillLevel too low for pending status, setting to 85%');
+          updates.fillLevel = 85;
+          // Also estimate weight based on capacity if available
+          updates.weight = parseFloat(weight) > 0 ? parseFloat(weight) : 75;
+        }
+        // Set appropriate status based on fill level
+        updates.status = updates.fillLevel >= 85 ? 'full' : 'active';
+      }
+      
+      console.log('📤 Modal sending updates:', updates);
+      onUpdate(updates);
     }
-    onClose();
+    // Don't close here - let parent handle it after update completes
   };
 
   const getStatusColor = (statusValue) => {
-    switch (statusValue) {
-      case 'completed':
-        return '#1F2937';
-      case 'pending':
-        return '#F59E0B';
-      case 'issue':
-        return '#EF4444';
-      default:
-        return '#6B7280';
+    // Determine color based on fillLevel and backend status
+    if (statusValue === 'full' || initialFillLevel >= 85) {
+      return '#EF4444'; // Red - needs collection urgently
+    } else if (initialFillLevel >= 50) {
+      return '#F59E0B'; // Yellow - needs collection soon
+    } else if (statusValue === 'maintenance') {
+      return '#9CA3AF'; // Gray - maintenance
+    } else {
+      return '#10B981'; // Green - active/good
     }
   };
   return (
@@ -101,9 +138,11 @@ const BinDetailsModal = ({
               <Text style={styles.binIdValue}>{binId}</Text>
             </View>
             <View style={styles.statusSection}>
-              <Text style={styles.statusLabel}>Status</Text>
+              <Text style={styles.statusLabel}>Collection Status</Text>
               <View style={[styles.statusBadge, { backgroundColor: getStatusColor(initialStatus) }]}>
-                <Text style={styles.statusText}>{initialStatus}</Text>
+                <Text style={styles.statusText}>
+                  {initialFillLevel >= 50 || initialStatus === 'full' ? 'Pending' : 'Completed'}
+                </Text>
               </View>
             </View>
           </View>
@@ -139,31 +178,65 @@ const BinDetailsModal = ({
           {/* Expanded Content with Editable Fields */}
           {isExpanded && (
             <View style={styles.expandedContent}>
-              {/* Status Dropdown/Selector */}
+              {/* Collection Status Selector */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Status</Text>
-                <View style={styles.statusSelector}>
-                  {['pending', 'completed', 'issue'].map((statusOption) => (
+                <Text style={styles.inputLabel}>Mark Collection As</Text>
+                <View style={styles.statusSelectorThree}>
+                  {[{ value: 'pending', label: '⏳ Pending' }, 
+                    { value: 'completed', label: '✅ Completed' },
+                    { value: 'issue', label: '⚠️ Issue' }].map((statusOption) => (
                     <TouchableOpacity
-                      key={statusOption}
+                      key={statusOption.value}
                       style={[
-                        styles.statusOption,
-                        status === statusOption && styles.statusOptionSelected,
+                        styles.statusOptionThree,
+                        collectionStatus === statusOption.value && styles.statusOptionSelected,
                       ]}
-                      onPress={() => setStatus(statusOption)}
+                      onPress={() => setCollectionStatus(statusOption.value)}
                     >
                       <Text
                         style={[
                           styles.statusOptionText,
-                          status === statusOption && styles.statusOptionTextSelected,
+                          collectionStatus === statusOption.value && styles.statusOptionTextSelected,
                         ]}
                       >
-                        {statusOption}
+                        {statusOption.label}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
+                {collectionStatus === 'completed' && (
+                  <Text style={styles.helpText}>
+                    ℹ️ This will reset fill level and weight to 0
+                  </Text>
+                )}
+                {collectionStatus === 'pending' && parseInt(fillLevel) < 50 && (
+                  <Text style={styles.helpText}>
+                    ℹ️ Fill level will be set to 85% (minimum for pending)
+                  </Text>
+                )}
+                {collectionStatus === 'issue' && (
+                  <Text style={styles.helpText}>
+                    ℹ️ Bin will be marked for maintenance
+                  </Text>
+                )}
               </View>
+              
+              {/* Complaint Field (only show for issues) */}
+              {collectionStatus === 'issue' && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Describe the Issue</Text>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={complaint}
+                    onChangeText={setComplaint}
+                    placeholder="Enter details about the issue..."
+                    placeholderTextColor="#9CA3AF"
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                  />
+                </View>
+              )}
 
               {/* Weight Input */}
               <View style={styles.inputGroup}>
@@ -378,14 +451,34 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     backgroundColor: '#F9FAFB',
   },
+  textArea: {
+    minHeight: 80,
+    paddingTop: 10,
+  },
   statusSelector: {
     flexDirection: 'row',
     gap: 8,
   },
+  statusSelectorThree: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   statusOption: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  statusOptionThree: {
+    flex: 1,
+    minWidth: '30%',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#D1D5DB',
@@ -404,6 +497,12 @@ const styles = StyleSheet.create({
   },
   statusOptionTextSelected: {
     color: '#FFFFFF',
+  },
+  helpText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   updateButton: {
     backgroundColor: '#3B82F6',
