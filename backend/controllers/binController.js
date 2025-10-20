@@ -1,0 +1,402 @@
+const Bin = require('../models/Bin');
+const { validationResult } = require('express-validator');
+
+// @desc    Get all bins with optional filters
+// @route   GET /api/bins
+// @access  Private
+exports.getAllBins = async (req, res) => {
+  try {
+    const { zone, binType, status, search } = req.query;
+    
+    // Build filter object
+    const filter = {};
+    if (zone) filter.zone = zone;
+    if (binType) filter.binType = binType;
+    if (status) filter.status = status;
+    
+    // Add search functionality
+    if (search) {
+      filter.$or = [
+        { binId: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const bins = await Bin.find(filter)
+      .sort({ createdAt: -1 })
+      .populate('createdBy', 'firstName lastName');
+
+    res.status(200).json({
+      success: true,
+      count: bins.length,
+      data: bins
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching bins',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get single bin by ID
+// @route   GET /api/bins/:id
+// @access  Private
+exports.getBinById = async (req, res) => {
+  try {
+    const bin = await Bin.findById(req.params.id)
+      .populate('createdBy', 'firstName lastName email');
+
+    if (!bin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bin not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: bin
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching bin',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Create new bin
+// @route   POST /api/bins
+// @access  Private
+exports.createBin = async (req, res) => {
+  try {
+    // Check validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    // Add created by user
+    req.body.createdBy = req.user.id;
+
+    const bin = await Bin.create(req.body);
+
+    res.status(201).json({
+      success: true,
+      message: 'Bin created successfully',
+      data: bin
+    });
+  } catch (error) {
+    // Handle duplicate binId
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bin ID already exists'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Error creating bin',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Update bin
+// @route   PUT /api/bins/:id
+// @access  Private
+exports.updateBin = async (req, res) => {
+  try {
+    let bin = await Bin.findById(req.params.id);
+
+    if (!bin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bin not found'
+      });
+    }
+
+    bin = await Bin.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Bin updated successfully',
+      data: bin
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating bin',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Delete bin
+// @route   DELETE /api/bins/:id
+// @access  Private (Admin/Supervisor only)
+exports.deleteBin = async (req, res) => {
+  try {
+    const bin = await Bin.findById(req.params.id);
+
+    if (!bin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bin not found'
+      });
+    }
+
+    await bin.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: 'Bin deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting bin',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Update bin status
+// @route   PATCH /api/bins/:id/status
+// @access  Private
+exports.updateBinStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status is required'
+      });
+    }
+
+    const bin = await Bin.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true, runValidators: true }
+    );
+
+    if (!bin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bin not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Bin status updated',
+      data: bin
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating bin status',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Update bin fill level
+// @route   PATCH /api/bins/:id/fillLevel
+// @access  Private
+exports.updateFillLevel = async (req, res) => {
+  try {
+    const { fillLevel, weight } = req.body;
+
+    if (fillLevel === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Fill level is required'
+      });
+    }
+
+    const updates = { fillLevel };
+    if (weight !== undefined) updates.weight = weight;
+
+    // Auto-update status based on fill level
+    if (fillLevel >= 90) {
+      updates.status = 'full';
+    } else if (fillLevel < 90) {
+      // Only change status from 'full' to 'active' if it was 'full'
+      const currentBin = await Bin.findById(req.params.id);
+      if (currentBin && currentBin.status === 'full') {
+        updates.status = 'active';
+      }
+    }
+
+    const bin = await Bin.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, runValidators: true }
+    );
+
+    if (!bin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bin not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Bin fill level updated',
+      data: bin
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating fill level',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get bins by zone
+// @route   GET /api/bins/zone/:zone
+// @access  Private
+exports.getBinsByZone = async (req, res) => {
+  try {
+    const bins = await Bin.find({ zone: req.params.zone })
+      .sort({ binId: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: bins.length,
+      data: bins
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching bins by zone',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get bins by type
+// @route   GET /api/bins/type/:type
+// @access  Private
+exports.getBinsByType = async (req, res) => {
+  try {
+    const bins = await Bin.find({ binType: req.params.type })
+      .sort({ binId: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: bins.length,
+      data: bins
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching bins by type',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get bins by status
+// @route   GET /api/bins/status/:status
+// @access  Private
+exports.getBinsByStatus = async (req, res) => {
+  try {
+    const bins = await Bin.find({ status: req.params.status })
+      .sort({ binId: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: bins.length,
+      data: bins
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching bins by status',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get bin statistics
+// @route   GET /api/bins/stats
+// @access  Private
+exports.getBinStats = async (req, res) => {
+  try {
+    const totalBins = await Bin.countDocuments();
+    const activeBins = await Bin.countDocuments({ status: 'active' });
+    const fullBins = await Bin.countDocuments({ status: 'full' });
+    const maintenanceBins = await Bin.countDocuments({ status: 'maintenance' });
+
+    // Get bins by type
+    const binsByType = await Bin.aggregate([
+      {
+        $group: {
+          _id: '$binType',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Get bins by zone
+    const binsByZone = await Bin.aggregate([
+      {
+        $group: {
+          _id: '$zone',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Get bins needing collection (fill level >= 85%)
+    const binsNeedingCollection = await Bin.countDocuments({
+      fillLevel: { $gte: 85 }
+    });
+
+    // Average fill level
+    const avgFillLevel = await Bin.aggregate([
+      {
+        $group: {
+          _id: null,
+          average: { $avg: '$fillLevel' }
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        total: totalBins,
+        active: activeBins,
+        full: fullBins,
+        maintenance: maintenanceBins,
+        needingCollection: binsNeedingCollection,
+        averageFillLevel: avgFillLevel[0]?.average || 0,
+        byType: binsByType,
+        byZone: binsByZone
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching bin statistics',
+      error: error.message
+    });
+  }
+};

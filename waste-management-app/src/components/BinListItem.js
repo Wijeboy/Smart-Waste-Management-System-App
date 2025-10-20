@@ -18,41 +18,36 @@ import { COLORS, FONTS } from '../constants/theme';
 const BinListItem = ({ bin, onEdit, onDelete }) => {
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed':
-        return '#1F2937';
-      case 'pending':
-        return '#F59E0B';
-      case 'issue':
+      case 'active':
+        return '#10B981';
+      case 'full':
         return '#EF4444';
+      case 'maintenance':
+        return '#F59E0B';
+      case 'inactive':
+        return '#6B7280';
       default:
         return '#6B7280';
     }
   };
 
-  const getWasteTypeIcon = (wasteType) => {
-    switch (wasteType) {
-      case 'general':
+  const getBinTypeIcon = (binType) => {
+    switch (binType) {
+      case 'General Waste':
         return '🗑️';
-      case 'recyclable':
+      case 'Recyclable':
         return '♻️';
-      case 'organic':
+      case 'Organic':
         return '🌱';
+      case 'Hazardous':
+        return '☢️';
       default:
         return '🗑️';
     }
   };
 
-  const getWasteTypeLabel = (wasteType) => {
-    switch (wasteType) {
-      case 'general':
-        return 'General';
-      case 'recyclable':
-        return 'Recyclable';
-      case 'organic':
-        return 'Organic';
-      default:
-        return wasteType;
-    }
+  const getBinTypeLabel = (binType) => {
+    return binType || 'Unknown';
   };
 
   return (
@@ -78,26 +73,26 @@ const BinListItem = ({ bin, onEdit, onDelete }) => {
         </Text>
       </View>
 
-      {/* Waste Type and Capacity */}
+      {/* Bin Type and Capacity */}
       <View style={styles.detailsRow}>
         <View style={styles.detailItem}>
-          <Text style={styles.detailIcon}>{getWasteTypeIcon(bin.wasteType)}</Text>
+          <Text style={styles.detailIcon}>{getBinTypeIcon(bin.binType)}</Text>
           <Text style={styles.detailLabel}>Type</Text>
           <Text style={styles.detailValue}>
-            {getWasteTypeLabel(bin.wasteType)}
+            {getBinTypeLabel(bin.binType)}
           </Text>
         </View>
 
         <View style={styles.detailItem}>
           <Text style={styles.detailIcon}>📦</Text>
           <Text style={styles.detailLabel}>Capacity</Text>
-          <Text style={styles.detailValue}>{bin.capacity}</Text>
+          <Text style={styles.detailValue}>{bin.capacity} kg</Text>
         </View>
 
         <View style={styles.detailItem}>
           <Text style={styles.detailIcon}>⚖️</Text>
           <Text style={styles.detailLabel}>Weight</Text>
-          <Text style={styles.detailValue}>{bin.weight}kg</Text>
+          <Text style={styles.detailValue}>{bin.weight} kg</Text>
         </View>
 
         <View style={styles.detailItem}>

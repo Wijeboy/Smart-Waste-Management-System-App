@@ -22,6 +22,8 @@ const NextStopCard = ({
   sequence = 0,
   backgroundColor = COLORS.lightCard,
   onPress,
+  isCompleted = false,
+  isIssue = false,
   style,
 }) => {
   const {
@@ -30,6 +32,8 @@ const NextStopCard = ({
     status = '',
     weight,
     fillLevel,
+    notes = '',
+    complaint = '',
   } = stop;
 
   const testID = `next-stop-card-${sequence}`;
@@ -37,9 +41,12 @@ const NextStopCard = ({
   const weightDisplay = weight != null ? `${weight}kg` : '';
 
   const getStatusColor = (statusValue) => {
+    if (isCompleted) return '#10B981'; // Green for completed
+    if (isIssue) return '#EF4444'; // Red for issues
+    
     switch (statusValue) {
       case 'completed':
-        return '#1F2937';
+        return '#10B981';
       case 'pending':
         return '#F59E0B';
       case 'issue':
@@ -57,15 +64,31 @@ const NextStopCard = ({
 
   return (
     <TouchableOpacity
-      style={[styles.container, { backgroundColor }, style]}
+      style={[
+        styles.container, 
+        { backgroundColor },
+        isCompleted && styles.completedContainer,
+        isIssue && styles.issueContainer,
+        style
+      ]}
       testID={testID}
       onPress={handlePress}
       accessible={true}
       activeOpacity={0.7}
     >
-      {/* Sequence Number */}
-      <View style={styles.sequenceContainer} testID="sequence-number">
-        <Text style={styles.sequenceNumber}>{sequence}</Text>
+      {/* Sequence Number or Status Icon */}
+      <View style={[
+        styles.sequenceContainer,
+        isCompleted && styles.completedBadge,
+        isIssue && styles.issueBadge
+      ]} testID="sequence-number">
+        {isCompleted ? (
+          <Text style={styles.sequenceNumber}>✓</Text>
+        ) : isIssue ? (
+          <Text style={styles.sequenceNumber}>⚠</Text>
+        ) : sequence ? (
+          <Text style={styles.sequenceNumber}>{sequence}</Text>
+        ) : null}
       </View>
 
       {/* Content */}
@@ -98,6 +121,23 @@ const NextStopCard = ({
             </View>
           )}
         </View>
+        
+        {/* Issue Complaint/Notes */}
+        {isIssue && (complaint || notes) && (
+          <View style={styles.complaintBox}>
+            <Text style={styles.complaintLabel}>Issue:</Text>
+            <Text style={styles.complaintText} numberOfLines={2}>
+              {complaint || notes}
+            </Text>
+          </View>
+        )}
+        
+        {/* Completed Badge */}
+        {isCompleted && (
+          <View style={styles.completedBadgeText}>
+            <Text style={styles.completedText}>✓ Collected</Text>
+          </View>
+        )}
       </View>
 
       {/* Arrow Button */}
@@ -201,6 +241,51 @@ const styles = StyleSheet.create({
   arrow: {
     fontSize: 18,
     color: COLORS.primaryDarkTeal,
+  },
+  // Completed bin styles
+  completedContainer: {
+    borderWidth: 2,
+    borderColor: '#10B981',
+    backgroundColor: '#F0FDF4',
+  },
+  completedBadge: {
+    backgroundColor: '#10B981',
+  },
+  completedBadgeText: {
+    marginTop: 8,
+  },
+  completedText: {
+    fontSize: 12,
+    fontWeight: FONTS.weight.semiBold,
+    color: '#10B981',
+  },
+  // Issue bin styles
+  issueContainer: {
+    borderWidth: 2,
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  issueBadge: {
+    backgroundColor: '#EF4444',
+  },
+  complaintBox: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#EF4444',
+  },
+  complaintLabel: {
+    fontSize: 11,
+    fontWeight: FONTS.weight.semiBold,
+    color: '#EF4444',
+    marginBottom: 4,
+  },
+  complaintText: {
+    fontSize: 12,
+    color: '#7F1D1D',
+    lineHeight: 16,
   },
 });
 

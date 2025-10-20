@@ -1,25 +1,11 @@
 /**
  * UserContext
  * Provides user profile data and settings globally across the app
+ * Now using real authenticated user data from AuthContext
  */
 
-import React, { createContext, useState, useContext } from 'react';
-
-/**
- * Initial user profile data
- */
-const INITIAL_USER = {
-  name: 'Alex Johnson',
-  role: 'Collection Supervisor',
-  employeeId: 'EMP-001',
-  joinDate: '2020',
-  avatar: null, // Can be updated to a photo URI
-  settings: {
-    audioConfirmation: true,
-    vibrationFeedback: true,
-    autoSync: false,
-  },
-};
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 /**
  * Create the User Context
@@ -34,17 +20,64 @@ const UserContext = createContext();
  * @returns {JSX.Element} The UserProvider component
  */
 export const UserProvider = ({ children }) => {
-  const [user, setUser] = useState(INITIAL_USER);
+  // Get real user from AuthContext
+  const { user: authUser, updateUserProfile } = useAuth();
+  
+  // Local settings state
+  const [settings, setSettings] = useState({
+    audioConfirmation: true,
+    vibrationFeedback: true,
+    autoSync: false,
+  });
+  
+  // Transform auth user to include settings
+  const user = authUser ? {
+    ...authUser,
+    name: `${authUser.firstName} ${authUser.lastName}`,
+    role: authUser.role || 'User',
+    employeeId: authUser.id || 'N/A',
+    joinDate: authUser.createdAt ? new Date(authUser.createdAt).getFullYear().toString() : 'N/A',
+    avatar: null,
+    settings,
+  } : null;
 
   /**
    * Updates user profile information
-   * @param {Object} updates - Fields to update (name, role, avatar, etc.)
+   * Calls the API to update the backend and refreshes user data
+   * @param {Object} updates - Fields to update (name, role, etc.)
    */
-  const updateProfile = (updates) => {
-    setUser((prevUser) => ({
-      ...prevUser,
-      ...updates,
-    }));
+  const updateProfile = async (updates) => {
+    console.log('📝 Profile update requested:', updates);
+    
+    try {
+      // Parse name into firstName and lastName
+      const nameParts = updates.name ? updates.name.trim().split(' ') : [];
+      const firstName = nameParts[0] || authUser?.firstName || '';
+      const lastName = nameParts.slice(1).join(' ') || authUser?.lastName || '';
+      
+      // Prepare update data for backend
+      const profileData = {
+        firstName,
+        lastName,
+        role: updates.role || authUser?.role,
+      };
+      
+      console.log('📤 Sending to API:', profileData);
+      
+      // Call AuthContext's updateUserProfile which handles API call and state update
+      const result = await updateUserProfile(profileData);
+      
+      if (result.success) {
+        console.log('✅ Profile updated successfully');
+        return { success: true };
+      } else {
+        console.error('❌ Profile update failed:', result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error('❌ Profile update error:', error);
+      return { success: false, error: error.message };
+    }
   };
 
   /**
@@ -53,12 +86,9 @@ export const UserProvider = ({ children }) => {
    * @param {boolean} value - New value for the setting
    */
   const updateSetting = (setting, value) => {
-    setUser((prevUser) => ({
-      ...prevUser,
-      settings: {
-        ...prevUser.settings,
-        [setting]: value,
-      },
+    setSettings((prevSettings) => ({
+      ...prevSettings,
+      [setting]: value,
     }));
   };
 
@@ -67,7 +97,8 @@ export const UserProvider = ({ children }) => {
    * @returns {string} User's full name
    */
   const getUserDisplayName = () => {
-    return user.name;
+    if (!user) return 'Guest';
+    return user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
   };
 
   /**
@@ -75,14 +106,19 @@ export const UserProvider = ({ children }) => {
    * @returns {string} User's first name
    */
   const getUserFirstName = () => {
-    return user.name.split(' ')[0];
+    if (!user) return 'Guest';
+    return user.firstName || user.name?.split(' ')[0] || 'User';
   };
 
   /**
-   * Resets user profile to initial state (for testing or logout)
+   * Resets user settings to default (user data comes from AuthContext)
    */
   const resetProfile = () => {
-    setUser(INITIAL_USER);
+    setSettings({
+      audioConfirmation: true,
+      vibrationFeedback: true,
+      autoSync: false,
+    });
   };
 
   const value = {

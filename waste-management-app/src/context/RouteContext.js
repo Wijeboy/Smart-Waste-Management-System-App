@@ -1,15 +1,12 @@
 /**
  * RouteContext
  * Provides route data and collection management functions across the app
+ * Now using real bins from BinsContext
  */
 
-import React, { createContext, useState, useContext } from 'react';
-import { 
-  MOCK_STOPS, 
-  MOCK_ROUTE_INFO, 
-  MOCK_IMPACT_METRICS, 
-  MOCK_COLLECTIONS_BY_TYPE 
-} from '../api/mockData';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useBins } from './BinsContext';
+import { MOCK_ROUTE_INFO } from '../api/mockData';
 
 /**
  * Create the Route Context
@@ -24,41 +21,82 @@ const RouteContext = createContext();
  * @returns {JSX.Element} The RouteProvider component
  */
 export const RouteProvider = ({ children }) => {
-  // State to manage the list of stops
-  const [stops, setStops] = useState(MOCK_STOPS);
+  // Get real bins from BinsContext
+  const { bins, updateBin, loading } = useBins();
+  
+  // Track current day for auto-reset
+  const [lastResetDate, setLastResetDate] = useState(
+    () => new Date().toDateString()
+  );
   
   // State for route information
   const [routeInfo] = useState(MOCK_ROUTE_INFO);
   
-  // State for impact metrics
-  const [impactMetrics] = useState(MOCK_IMPACT_METRICS);
+  // Transform bins into stops format
+  const stops = bins.map((bin) => ({
+    id: bin._id,
+    binId: bin.binId,
+    address: bin.location,
+    status: bin.status === 'full' ? 'pending' : bin.status === 'active' ? 'completed' : 'pending',
+    weight: bin.weight,
+    fillLevel: bin.fillLevel,
+    priority: bin.fillLevel >= 85 ? 'high' : bin.fillLevel >= 60 ? 'normal' : 'low',
+    zone: bin.zone,
+    binType: bin.binType
+  }));
   
-  // State for collections by type
-  const [collectionsByType] = useState(MOCK_COLLECTIONS_BY_TYPE);
+  // Auto-reset at day end (check every minute)
+  useEffect(() => {
+    const checkDayChange = () => {
+      const currentDate = new Date().toDateString();
+      
+      if (currentDate !== lastResetDate) {
+        console.log('🌅 New day detected! Auto-resetting bins...');
+        console.log('Last reset:', lastResetDate);
+        console.log('Current date:', currentDate);
+        
+        // Reset all bins for new day
+        resetAllBins().then(() => {
+          setLastResetDate(currentDate);
+          console.log('✅ Auto-reset completed');
+        }).catch((error) => {
+          console.error('❌ Auto-reset failed:', error);
+        });
+      }
+    };
+    
+    // Check immediately on mount
+    checkDayChange();
+    
+    // Then check every minute
+    const interval = setInterval(checkDayChange, 60000);
+    
+    return () => clearInterval(interval);
+  }, [lastResetDate, bins.length]); // Re-run when date or bins change
 
   /**
-   * Updates the status of a stop
-   * @param {number} stopId - ID of the stop to update
-   * @param {string} newStatus - New status value
+   * Updates the status of a stop (bin)
+   * @param {string} stopId - MongoDB ID of the bin
+   * @param {string} newStatus - New status value ('active', 'full', 'maintenance', 'inactive')
    */
-  const updateStopStatus = (stopId, newStatus) => {
-    setStops((prevStops) =>
-      prevStops.map((stop) =>
-        stop.id === stopId ? { ...stop, status: newStatus } : stop
-      )
-    );
+  const updateStopStatus = async (stopId, newStatus) => {
+    await updateBin(stopId, { status: newStatus });
   };
 
   /**
-   * Handles collection confirmation - finds stop and updates to 'completed'
-   * @param {string} binId - The bin ID to mark as completed
+   * Handles collection confirmation - finds bin and updates status + resets fill level
+   * @param {string} binId - The bin ID to mark as collected
    */
-  const handleCollectionConfirmed = (binId) => {
-    setStops((prevStops) =>
-      prevStops.map((stop) =>
-        stop.binId === binId ? { ...stop, status: 'completed' } : stop
-      )
-    );
+  const handleCollectionConfirmed = async (binId) => {
+    const bin = bins.find((b) => b.binId === binId);
+    if (bin) {
+      await updateBin(bin._id, { 
+        status: 'active',
+        fillLevel: 0,
+        weight: 0,
+        lastCollection: new Date().toISOString()
+      });
+    }
   };
 
   /**
@@ -67,36 +105,64 @@ export const RouteProvider = ({ children }) => {
    * @returns {Object|undefined} The stop object or undefined
    */
   const getStopByBinId = (binId) => {
-    return stops.find((stop) => stop.binId === binId);
+    const bin = bins.find((b) => b.binId === binId);
+    if (!bin) return undefined;
+    return {
+      id: bin._id,
+      binId: bin.binId,
+      address: bin.location,
+      status: bin.status === 'full' ? 'pending' : bin.status === 'active' ? 'completed' : 'pending',
+      weight: bin.weight,
+      fillLevel: bin.fillLevel,
+      priority: bin.fillLevel >= 85 ? 'high' : bin.fillLevel >= 60 ? 'normal' : 'low',
+      zone: bin.zone,
+      binType: bin.binType
+    };
   };
 
   /**
-   * Updates technical details of a stop (status, weight, fillLevel)
+   * Updates technical details of a stop (bin)
    * @param {string} binId - The bin ID to update
    * @param {Object} updates - Object with fields to update (status, weight, fillLevel)
    */
-  const updateStopDetails = (binId, updates) => {
-    setStops((prevStops) =>
-      prevStops.map((stop) =>
-        stop.binId === binId ? { ...stop, ...updates } : stop
-      )
-    );
+  const updateStopDetails = async (binId, updates) => {
+    console.log('📍 RouteContext.updateStopDetails called');
+    console.log('   binId:', binId);
+    console.log('   updates:', updates);
+    
+    const bin = bins.find((b) => b.binId === binId);
+    console.log('   Found bin:', bin?._id || 'NOT FOUND');
+    
+    if (bin) {
+      console.log('   Calling updateBin API...');
+      const result = await updateBin(bin._id, updates);
+      console.log('   Update result:', result);
+      return result;
+    } else {
+      console.error('   ❌ Bin not found with binId:', binId);
+      throw new Error(`Bin not found: ${binId}`);
+    }
   };
 
   /**
-   * Gets statistics from current stops
+   * Gets statistics from current bins
    * @returns {Object} Statistics object
    */
   const getStatistics = () => {
-    const completed = stops.filter((stop) => stop.status === 'completed').length;
-    const pending = stops.filter((stop) => stop.status === 'pending').length;
-    const total = stops.length;
+    // Completed: bins with status 'active' and fillLevel < 50
+    const completed = bins.filter((bin) => bin.status === 'active' && bin.fillLevel < 50).length;
+    // Pending: bins that need collection (fillLevel >= 50 or status 'full')
+    const pending = bins.filter((bin) => bin.fillLevel >= 50 || bin.status === 'full').length;
+    // Issues: bins in maintenance or inactive
+    const issues = bins.filter((bin) => bin.status === 'maintenance' || bin.status === 'inactive').length;
+    
+    const total = bins.length;
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
     const efficiency = percentage; // Efficiency equals completion percentage
 
     // Calculate ETA based on current time and estimated completion rate
     const now = new Date();
-    const hoursToComplete = pending * 0.25; // Assume 15 minutes per stop
+    const hoursToComplete = pending * 0.25; // Assume 15 minutes per bin
     const etaDate = new Date(now.getTime() + hoursToComplete * 60 * 60 * 1000);
     const eta = etaDate.toLocaleTimeString('en-US', { 
       hour: 'numeric', 
@@ -111,24 +177,207 @@ export const RouteProvider = ({ children }) => {
       efficiency: `${efficiency}%`,
       percentage,
       eta,
-      issues: 0, // Placeholder for future implementation
+      issues,
     };
   };
 
   /**
-   * Gets all stops sorted by priority (excluding initially completed ones)
-   * Returns all stops to keep them visible in Next Stops even after status updates
+   * Gets pending stops (bins that need collection) sorted by priority
    * @returns {Array} Array of stops sorted by priority (high first)
    */
   const getPendingStops = () => {
     const priorityOrder = { high: 0, normal: 1, low: 2 };
     
-    return stops
-      .slice(0, 3) // Get first 3 stops (the initially pending ones)
-      .sort((a, b) => {
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
-      });
+    // Get bins that need collection (fillLevel >= 50 or status 'full')
+    const pendingBins = bins.filter(
+      (bin) => bin.fillLevel >= 50 || bin.status === 'full'
+    );
+    
+    return pendingBins
+      .map((bin) => ({
+        id: bin._id,
+        binId: bin.binId,
+        address: bin.location,
+        status: 'pending',
+        weight: bin.weight,
+        fillLevel: bin.fillLevel,
+        priority: bin.fillLevel >= 85 ? 'high' : bin.fillLevel >= 60 ? 'normal' : 'low',
+        zone: bin.zone,
+        binType: bin.binType,
+        notes: bin.notes
+      }))
+      .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
   };
+  
+  /**
+   * Gets completed stops (bins recently collected)
+   * @returns {Array} Array of completed bins
+   */
+  const getCompletedStops = () => {
+    const completedBins = bins.filter(
+      (bin) => bin.status === 'active' && bin.fillLevel < 50
+    );
+    
+    return completedBins.map((bin) => ({
+      id: bin._id,
+      binId: bin.binId,
+      address: bin.location,
+      status: 'completed',
+      weight: bin.weight,
+      fillLevel: bin.fillLevel,
+      zone: bin.zone,
+      binType: bin.binType,
+      notes: bin.notes,
+      lastCollection: bin.lastCollection
+    }));
+  };
+  
+  /**
+   * Gets bins with issues (maintenance status)
+   * @returns {Array} Array of bins with issues
+   */
+  const getIssueStops = () => {
+    const issueBins = bins.filter(
+      (bin) => bin.status === 'maintenance' || bin.status === 'inactive'
+    );
+    
+    return issueBins.map((bin) => ({
+      id: bin._id,
+      binId: bin.binId,
+      address: bin.location,
+      status: 'issue',
+      weight: bin.weight,
+      fillLevel: bin.fillLevel,
+      zone: bin.zone,
+      binType: bin.binType,
+      notes: bin.notes,
+      complaint: bin.notes // Use notes as complaint
+    }));
+  };
+  
+  /**
+   * Resets all bins to pending status (for new day)
+   * Sets fillLevel to 85% to simulate bins needing collection
+   */
+  const resetAllBins = async () => {
+    console.log('🔄 Resetting all bins to pending status...');
+    
+    // Update all bins
+    const resetPromises = bins.map((bin) => 
+      updateBin(bin._id, {
+        fillLevel: 85, // Set to high fill level
+        status: 'full', // Mark as needing collection
+        weight: Math.round(bin.capacity * 0.85) // Estimate weight
+      })
+    );
+    
+    await Promise.all(resetPromises);
+    console.log('✅ All bins reset to pending status');
+  };
+  
+  /**
+   * Calculate impact metrics based on completed bins (collected today)
+   * @returns {Object} Impact metrics with waste collected, CO2 saved, trees saved
+   */
+  const getImpactMetrics = () => {
+    // Get completed bins (recently collected)
+    const completedBins = bins.filter(
+      (bin) => bin.status === 'active' && bin.fillLevel < 50
+    );
+    
+    // Calculate total waste collected (sum of all completed bin weights)
+    const wasteCollected = completedBins.reduce((total, bin) => {
+      // Use the bin's capacity as the amount collected (since it was full before collection)
+      return total + (bin.capacity || 0);
+    }, 0);
+    
+    // Calculate CO2 saved (estimate: 1kg waste = 0.5kg CO2 saved by proper disposal)
+    const co2Saved = Math.round(wasteCollected * 0.5);
+    
+    // Calculate trees saved (estimate: 1 tree saves ~22kg CO2 per year, so per day ~0.06kg)
+    // Trees saved = CO2 saved / 0.06
+    const treesSaved = Math.round(co2Saved / 0.06);
+    
+    console.log('📊 Impact Metrics Calculated:');
+    console.log(`   Completed bins: ${completedBins.length}`);
+    console.log(`   Total waste collected: ${wasteCollected}kg`);
+    console.log(`   CO2 saved: ${co2Saved}kg`);
+    console.log(`   Trees saved: ${treesSaved}`);
+    
+    return {
+      recycled: {
+        value: wasteCollected.toString(),
+        unit: 'kg',
+      },
+      co2Saved: {
+        value: co2Saved.toString(),
+        unit: 'kg',
+      },
+      treesSaved: {
+        value: treesSaved.toString(),
+        unit: 'trees',
+      },
+    };
+  };
+  
+  /**
+   * Calculate collections by bin type based on completed bins
+   * @returns {Array} Array of collection counts by type
+   */
+  const getCollectionsByType = () => {
+    // Get completed bins (recently collected)
+    const completedBins = bins.filter(
+      (bin) => bin.status === 'active' && bin.fillLevel < 50
+    );
+    
+    // Count bins by type
+    const typeCounts = {
+      'General Waste': 0,
+      'Recyclable': 0,
+      'Organic': 0,
+      'Hazardous': 0,
+    };
+    
+    // Sum up weights by type
+    const typeWeights = {
+      'General Waste': 0,
+      'Recyclable': 0,
+      'Organic': 0,
+      'Hazardous': 0,
+    };
+    
+    completedBins.forEach((bin) => {
+      const type = bin.binType || 'General Waste';
+      if (typeCounts.hasOwnProperty(type)) {
+        typeCounts[type]++;
+        typeWeights[type] += (bin.capacity || 0);
+      }
+    });
+    
+    // Create array with icons
+    const typeIcons = {
+      'General Waste': '🗑️',
+      'Recyclable': '♻️',
+      'Organic': '🌱',
+      'Hazardous': '☢️',
+    };
+    
+    console.log('📊 Collections by Type:');
+    Object.keys(typeCounts).forEach((type) => {
+      console.log(`   ${typeIcons[type]} ${type}: ${typeCounts[type]} bins, ${typeWeights[type]}kg`);
+    });
+    
+    return Object.keys(typeCounts).map((type) => ({
+      type,
+      count: typeCounts[type],
+      weight: `${typeWeights[type]}kg`,
+      icon: typeIcons[type],
+    }));
+  };
+
+  // Calculate dynamic metrics
+  const impactMetrics = getImpactMetrics();
+  const collectionsByType = getCollectionsByType();
 
   const value = {
     stops,
@@ -141,6 +390,9 @@ export const RouteProvider = ({ children }) => {
     updateStopDetails,
     getStatistics,
     getPendingStops,
+    getCompletedStops,
+    getIssueStops,
+    resetAllBins,
   };
 
   return <RouteContext.Provider value={value}>{children}</RouteContext.Provider>;

@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { COLORS, FONTS } from '../../constants/theme';
 import { useRoute } from '../../context/RouteContext';
 import StatCard from '../../components/StatCard';
@@ -20,14 +20,26 @@ import BottomNavigation from '../../components/BottomNavigation';
  */
 const RouteManagementScreen = ({ navigation }) => {
   // Get route data and functions from context
-  const { getStatistics, getPendingStops, getStopByBinId, updateStopDetails, routeInfo } = useRoute();
+  const { 
+    getStatistics, 
+    getPendingStops, 
+    getCompletedStops,
+    getIssueStops,
+    getStopByBinId, 
+    updateStopDetails,
+    resetAllBins, 
+    routeInfo 
+  } = useRoute();
   const stats = getStatistics();
   const pendingStops = getPendingStops();
+  const completedStops = getCompletedStops();
+  const issueStops = getIssueStops();
 
-  // State for modal
+  // State for modal and filters
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedBin, setSelectedBin] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
+  const [filterTab, setFilterTab] = useState('pending'); // pending, completed, issues
 
   const handleStopPress = (stop) => {
     // Open modal with bin details
@@ -40,9 +52,18 @@ const RouteManagementScreen = ({ navigation }) => {
     setSelectedBin(null);
   };
 
-  const handleUpdateBinDetails = (updates) => {
+  const handleUpdateBinDetails = async (updates) => {
     if (selectedBin) {
-      updateStopDetails(selectedBin.binId, updates);
+      console.log('🔄 Updating bin:', selectedBin.binId, 'with:', updates);
+      try {
+        await updateStopDetails(selectedBin.binId, updates);
+        console.log('✅ Bin updated successfully');
+        // Close modal after successful update
+        setModalVisible(false);
+        setSelectedBin(null);
+      } catch (error) {
+        console.error('❌ Error updating bin:', error);
+      }
     }
   };
 
@@ -50,6 +71,50 @@ const RouteManagementScreen = ({ navigation }) => {
     // Navigate to map view (placeholder for future implementation)
     console.log('Navigate to map view');
   };
+  
+  const handleResetAllBins = () => {
+    Alert.alert(
+      'Reset All Bins',
+      'This will mark all bins as pending (needing collection). Are you sure?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Reset All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🔄 Resetting all bins to pending...');
+              await resetAllBins();
+              console.log('✅ All bins reset successfully');
+              Alert.alert('Success', 'All bins have been reset to pending status');
+            } catch (error) {
+              console.error('❌ Error resetting bins:', error);
+              Alert.alert('Error', 'Failed to reset bins');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+  
+  // Get stops based on filter
+  const getFilteredStops = () => {
+    switch (filterTab) {
+      case 'completed':
+        return completedStops;
+      case 'issues':
+        return issueStops;
+      case 'pending':
+      default:
+        return pendingStops;
+    }
+  };
+  
+  const filteredStops = getFilteredStops();
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -157,31 +222,77 @@ const RouteManagementScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* NEXT STOPS SECTION */}
+        {/* BINS SECTION */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>🚩</Text>
-            <Text style={styles.sectionTitle}>Next Stops</Text>
+          {/* Section Header with Reset Button */}
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionIcon}>🚩</Text>
+              <Text style={styles.sectionTitle}>Bin Management</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.resetButton}
+              onPress={handleResetAllBins}
+            >
+              <Text style={styles.resetButtonText}>🔄 Reset All</Text>
+            </TouchableOpacity>
           </View>
           
-          {pendingStops.length > 0 ? (
-            pendingStops.map((stop, index) => (
+          {/* Filter Tabs */}
+          <View style={styles.filterTabs}>
+            <TouchableOpacity 
+              style={[styles.filterTab, filterTab === 'pending' && styles.filterTabActive]}
+              onPress={() => setFilterTab('pending')}
+            >
+              <Text style={[styles.filterTabText, filterTab === 'pending' && styles.filterTabTextActive]}>
+                ⏳ Pending ({pendingStops.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.filterTab, filterTab === 'completed' && styles.filterTabActive]}
+              onPress={() => setFilterTab('completed')}
+            >
+              <Text style={[styles.filterTabText, filterTab === 'completed' && styles.filterTabTextActive]}>
+                ✅ Completed ({completedStops.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.filterTab, filterTab === 'issues' && styles.filterTabActive]}
+              onPress={() => setFilterTab('issues')}
+            >
+              <Text style={[styles.filterTabText, filterTab === 'issues' && styles.filterTabTextActive]}>
+                ⚠️ Issues ({issueStops.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
+          {/* Bin List */}
+          {filteredStops.length > 0 ? (
+            filteredStops.map((stop, index) => (
               <NextStopCard
                 key={stop.id}
                 stop={stop}
-                sequence={index + 1}
+                sequence={filterTab === 'pending' ? index + 1 : null}
                 onPress={handleStopPress}
                 backgroundColor={COLORS.lightCard}
+                isCompleted={filterTab === 'completed'}
+                isIssue={filterTab === 'issues'}
               />
             ))
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateIcon}>✅</Text>
+              <Text style={styles.emptyStateIcon}>
+                {filterTab === 'pending' ? '✅' : filterTab === 'completed' ? '📋' : '✓'}
+              </Text>
               <Text style={styles.emptyStateText}>
-                All stops completed!
+                {filterTab === 'pending' ? 'All bins collected!' : 
+                 filterTab === 'completed' ? 'No completed bins' :
+                 'No issues reported'}
               </Text>
               <Text style={styles.emptyStateSubtext}>
-                Great work today!
+                {filterTab === 'pending' ? 'Great work today!' :
+                 filterTab === 'completed' ? 'Complete some collections first' :
+                 'Everything running smoothly'}
               </Text>
             </View>
           )}
@@ -354,14 +465,19 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 
-  // NEXT STOPS SECTION
+  // BINS SECTION
   section: {
     paddingHorizontal: 16,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
   },
   sectionIcon: {
     fontSize: 16,
@@ -371,6 +487,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: FONTS.weight.bold,
     color: COLORS.primaryDarkTeal,
+  },
+  resetButton: {
+    backgroundColor: '#EF4444',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  resetButtonText: {
+    fontSize: 13,
+    fontWeight: FONTS.weight.semiBold,
+    color: '#FFFFFF',
+  },
+  filterTabs: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  filterTabActive: {
+    backgroundColor: COLORS.headerTeal,
+  },
+  filterTabText: {
+    fontSize: 12,
+    fontWeight: FONTS.weight.semiBold,
+    color: '#6B7280',
+  },
+  filterTabTextActive: {
+    color: COLORS.textPrimary,
   },
 
   // Empty State

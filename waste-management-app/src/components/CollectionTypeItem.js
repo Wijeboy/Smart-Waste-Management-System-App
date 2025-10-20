@@ -25,6 +25,7 @@ const generateTestID = (type) => {
  * @param {Object} props - Component props
  * @param {string} props.type - Collection type name
  * @param {number|string} props.count - Number of collections
+ * @param {string} props.weight - Weight of collections
  * @param {string} props.icon - Icon emoji to display
  * @param {string} props.iconColor - Color for the icon background
  * @param {string} props.backgroundColor - Background color of the item
@@ -35,6 +36,7 @@ const generateTestID = (type) => {
 const CollectionTypeItem = ({
   type = '',
   count,
+  weight,
   icon,
   iconColor = COLORS.iconTeal,
   backgroundColor = COLORS.lightCard,
@@ -42,7 +44,7 @@ const CollectionTypeItem = ({
   style,
 }) => {
   const testID = generateTestID(type);
-  const countDisplay = count != null ? String(count) : '';
+  const countDisplay = count != null ? `${count} (${weight || '0kg'})` : '';
 
   const handlePress = () => {
     if (onPress) {
@@ -126,8 +128,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   count: {
-    fontSize: FONTS.size.heading,
-    fontWeight: FONTS.weight.bold,
+    fontSize: FONTS.size.body,
+    fontWeight: FONTS.weight.semiBold,
     color: COLORS.primaryDarkTeal,
     marginRight: 12,
   },
