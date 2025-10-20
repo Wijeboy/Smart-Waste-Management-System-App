@@ -58,7 +58,7 @@ const ReportsScreen = ({ navigation }) => {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            deleteBin(bin.id);
+            deleteBin(bin._id);
           },
         },
       ],
@@ -66,13 +66,23 @@ const ReportsScreen = ({ navigation }) => {
     );
   };
 
-  const handleModalSubmit = (formData) => {
+  const handleModalSubmit = async (formData) => {
     if (selectedBin) {
       // Update existing bin
-      updateBin(selectedBin.id, formData);
+      const result = await updateBin(selectedBin._id, formData);
+      if (result.success) {
+        Alert.alert('Success', 'Bin updated successfully');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to update bin');
+      }
     } else {
       // Add new bin
-      addBin(formData);
+      const result = await addBin(formData);
+      if (result.success) {
+        Alert.alert('Success', 'Bin created successfully');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to create bin');
+      }
     }
     setModalVisible(false);
     setSelectedBin(null);
@@ -131,7 +141,7 @@ const ReportsScreen = ({ navigation }) => {
         ) : (
           sortedBins.map((bin) => (
             <BinListItem
-              key={bin.id}
+              key={bin._id}
               bin={bin}
               onEdit={handleEditBin}
               onDelete={handleDeleteBin}

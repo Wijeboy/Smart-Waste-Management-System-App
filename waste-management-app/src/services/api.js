@@ -121,6 +121,78 @@ class ApiService {
       method: 'GET',
     });
   }
+
+  // Bin endpoints
+  async getBins(filters = {}) {
+    const queryParams = new URLSearchParams(filters).toString();
+    return this.request(`/bins${queryParams ? `?${queryParams}` : ''}`, {
+      method: 'GET',
+    });
+  }
+
+  async getBinById(id) {
+    return this.request(`/bins/${id}`, {
+      method: 'GET',
+    });
+  }
+
+  async createBin(binData) {
+    return this.request('/bins', {
+      method: 'POST',
+      body: JSON.stringify(binData),
+    });
+  }
+
+  async updateBin(id, updates) {
+    return this.request(`/bins/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteBin(id) {
+    return this.request(`/bins/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateBinStatus(id, status) {
+    return this.request(`/bins/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async updateBinFillLevel(id, fillLevel, weight) {
+    return this.request(`/bins/${id}/fillLevel`, {
+      method: 'PATCH',
+      body: JSON.stringify({ fillLevel, weight }),
+    });
+  }
+
+  async getBinsByZone(zone) {
+    return this.request(`/bins/zone/${zone}`, {
+      method: 'GET',
+    });
+  }
+
+  async getBinsByType(type) {
+    return this.request(`/bins/type/${type}`, {
+      method: 'GET',
+    });
+  }
+
+  async getBinsByStatus(status) {
+    return this.request(`/bins/status/${status}`, {
+      method: 'GET',
+    });
+  }
+
+  async getBinStats() {
+    return this.request('/bins/stats', {
+      method: 'GET',
+    });
+  }
 }
 
 export default new ApiService();

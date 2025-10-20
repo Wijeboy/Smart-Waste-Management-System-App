@@ -31,25 +31,35 @@ const RegisterBinModal = ({ visible, binData, onSubmit, onClose }) => {
   // Form state
   const [binId, setBinId] = useState('');
   const [location, setLocation] = useState('');
-  const [wasteType, setWasteType] = useState('');
+  const [binType, setBinType] = useState('');
+  const [zone, setZone] = useState('');
   const [capacity, setCapacity] = useState('');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState({});
 
-  // Waste type options
-  const wasteTypes = [
-    { label: 'General', value: 'general' },
-    { label: 'Recyclable', value: 'recyclable' },
-    { label: 'Organic', value: 'organic' },
+  // Bin type options (matching backend enum)
+  const binTypes = [
+    { label: 'General Waste', value: 'General Waste' },
+    { label: 'Recyclable', value: 'Recyclable' },
+    { label: 'Organic', value: 'Organic' },
+    { label: 'Hazardous', value: 'Hazardous' },
   ];
 
-  // Capacity options
+  // Zone options (matching backend enum)
+  const zoneOptions = [
+    { label: 'Zone A', value: 'Zone A' },
+    { label: 'Zone B', value: 'Zone B' },
+    { label: 'Zone C', value: 'Zone C' },
+    { label: 'Zone D', value: 'Zone D' },
+  ];
+
+  // Capacity options (in kg, as numbers)
   const capacityOptions = [
-    { label: '50 Liters', value: '50L' },
-    { label: '100 Liters', value: '100L' },
-    { label: '240 Liters', value: '240L' },
-    { label: '500 Liters', value: '500L' },
-    { label: '1000 Liters', value: '1000L' },
+    { label: '50 kg', value: 50 },
+    { label: '80 kg', value: 80 },
+    { label: '100 kg', value: 100 },
+    { label: '120 kg', value: 120 },
+    { label: '150 kg', value: 150 },
   ];
 
   // Reset form when modal opens/closes or binData changes
@@ -58,7 +68,8 @@ const RegisterBinModal = ({ visible, binData, onSubmit, onClose }) => {
       if (binData) {
         setBinId(binData.binId || '');
         setLocation(binData.location || '');
-        setWasteType(binData.wasteType || '');
+        setBinType(binData.binType || '');
+        setZone(binData.zone || '');
         setCapacity(binData.capacity || '');
         setNotes(binData.notes || '');
       } else {
@@ -71,7 +82,8 @@ const RegisterBinModal = ({ visible, binData, onSubmit, onClose }) => {
   const resetForm = () => {
     setBinId('');
     setLocation('');
-    setWasteType('');
+    setBinType('');
+    setZone('');
     setCapacity('');
     setNotes('');
     setErrors({});
@@ -88,8 +100,12 @@ const RegisterBinModal = ({ visible, binData, onSubmit, onClose }) => {
       newErrors.location = 'Location is required';
     }
 
-    if (!wasteType) {
-      newErrors.wasteType = 'Waste type is required';
+    if (!binType) {
+      newErrors.binType = 'Bin type is required';
+    }
+
+    if (!zone) {
+      newErrors.zone = 'Zone is required';
     }
 
     if (!capacity) {
@@ -105,8 +121,15 @@ const RegisterBinModal = ({ visible, binData, onSubmit, onClose }) => {
       const formData = {
         binId: binId.trim(),
         location: location.trim(),
-        wasteType,
+        zone,
+        binType,
         capacity,
+        fillLevel: 0,
+        weight: 0,
+        coordinates: {
+          lat: 6.9271, // Default Colombo coordinates
+          lng: 79.8612
+        },
         notes: notes.trim(),
       };
 
@@ -187,45 +210,76 @@ const RegisterBinModal = ({ visible, binData, onSubmit, onClose }) => {
                 )}
               </View>
 
-              {/* Waste Type and Capacity Row */}
-              <View style={styles.row}>
-                {/* Waste Type */}
-                <View style={[styles.inputGroup, styles.halfWidth]}>
-                  <Text style={styles.label}>
-                    Waste Type <Text style={styles.required}>*</Text>
-                  </Text>
-                  <View style={styles.selectContainer}>
-                    {wasteTypes.map((type) => (
-                      <TouchableOpacity
-                        key={type.value}
+              {/* Bin Type */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>
+                  Bin Type <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.selectContainer}>
+                  {binTypes.map((type) => (
+                    <TouchableOpacity
+                      key={type.value}
+                      style={[
+                        styles.selectOption,
+                        binType === type.value && styles.selectOptionActive,
+                      ]}
+                      onPress={() => setBinType(type.value)}
+                    >
+                      <Text
                         style={[
-                          styles.selectOption,
-                          wasteType === type.value && styles.selectOptionActive,
+                          styles.selectOptionText,
+                          binType === type.value &&
+                            styles.selectOptionTextActive,
                         ]}
-                        onPress={() => setWasteType(type.value)}
                       >
-                        <Text
-                          style={[
-                            styles.selectOptionText,
-                            wasteType === type.value &&
-                              styles.selectOptionTextActive,
-                          ]}
-                        >
-                          {type.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  {errors.wasteType && (
-                    <Text style={styles.errorText}>{errors.wasteType}</Text>
-                  )}
+                        {type.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
+                {errors.binType && (
+                  <Text style={styles.errorText}>{errors.binType}</Text>
+                )}
+              </View>
 
-                {/* Capacity */}
-                <View style={[styles.inputGroup, styles.halfWidth]}>
-                  <Text style={styles.label}>
-                    Capacity <Text style={styles.required}>*</Text>
-                  </Text>
+              {/* Zone */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>
+                  Zone <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.selectContainer}>
+                  {zoneOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.selectOption,
+                        zone === option.value && styles.selectOptionActive,
+                      ]}
+                      onPress={() => setZone(option.value)}
+                    >
+                      <Text
+                        style={[
+                          styles.selectOptionText,
+                          zone === option.value &&
+                            styles.selectOptionTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {errors.zone && (
+                  <Text style={styles.errorText}>{errors.zone}</Text>
+                )}
+              </View>
+
+              {/* Capacity */}
+              <View style={styles.inputGroup}>
+
+                <Text style={styles.label}>
+                  Capacity <Text style={styles.required}>*</Text>
+                </Text>
                   <View style={styles.selectContainer}>
                     {capacityOptions.map((option) => (
                       <TouchableOpacity
@@ -248,10 +302,9 @@ const RegisterBinModal = ({ visible, binData, onSubmit, onClose }) => {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  {errors.capacity && (
-                    <Text style={styles.errorText}>{errors.capacity}</Text>
-                  )}
-                </View>
+                {errors.capacity && (
+                  <Text style={styles.errorText}>{errors.capacity}</Text>
+                )}
               </View>
 
               {/* Notes */}

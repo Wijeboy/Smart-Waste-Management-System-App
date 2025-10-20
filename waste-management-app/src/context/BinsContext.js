@@ -1,51 +1,12 @@
 /**
  * BinsContext
  * Provides bins data and CRUD operations across the app
+ * Now using real API instead of mock data
  */
 
-import React, { createContext, useState, useContext } from 'react';
-
-/**
- * Mock bins data for initial state
- */
-const INITIAL_BINS = [
-  {
-    id: 1,
-    binId: 'BIN-001',
-    location: '123 Main St, Downtown',
-    wasteType: 'general',
-    capacity: '240L',
-    notes: 'Near the coffee shop',
-    status: 'pending',
-    weight: 15.2,
-    fillLevel: 85,
-    createdAt: new Date('2025-01-10'),
-  },
-  {
-    id: 2,
-    binId: 'BIN-002',
-    location: '456 Oak Ave, Westside',
-    wasteType: 'recyclable',
-    capacity: '100L',
-    notes: 'Residential area',
-    status: 'completed',
-    weight: 8.5,
-    fillLevel: 45,
-    createdAt: new Date('2025-01-12'),
-  },
-  {
-    id: 3,
-    binId: 'BIN-003',
-    location: '789 Pine Rd, Eastside',
-    wasteType: 'organic',
-    capacity: '500L',
-    notes: 'Community garden',
-    status: 'pending',
-    weight: 22.8,
-    fillLevel: 92,
-    createdAt: new Date('2025-01-15'),
-  },
-];
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import apiService from '../services/api';
+import { useAuth } from './AuthContext';
 
 /**
  * Create the Bins Context
@@ -60,55 +21,111 @@ const BinsContext = createContext();
  * @returns {JSX.Element} The BinsProvider component
  */
 export const BinsProvider = ({ children }) => {
-  const [bins, setBins] = useState(INITIAL_BINS);
+  const [bins, setBins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { isAuthenticated } = useAuth();
+
+  // Fetch bins on mount if authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log('🗑️ Fetching bins from API...');
+      fetchBins();
+    }
+  }, [isAuthenticated]);
+
+  /**
+   * Fetches bins from the API
+   * @param {Object} filters - Optional filters
+   */
+  const fetchBins = async (filters = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiService.getBins(filters);
+      console.log('✅ Bins fetched:', response.count);
+      setBins(response.data);
+    } catch (err) {
+      setError(err.message);
+      console.error('❌ Error fetching bins:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /**
    * Adds a new bin to the collection
-   * @param {Object} binData - New bin data (without id)
-   * @returns {Object} The newly created bin with id
+   * @param {Object} binData - New bin data
+   * @returns {Object} Success/error response
    */
-  const addBin = (binData) => {
-    const newBin = {
-      id: Date.now(), // Simple ID generation
-      ...binData,
-      status: binData.status || 'pending',
-      weight: binData.weight || 0,
-      fillLevel: binData.fillLevel || 0,
-      createdAt: new Date(),
-    };
-
-    setBins((prevBins) => [...prevBins, newBin]);
-    return newBin;
+  const addBin = async (binData) => {
+    try {
+      setLoading(true);
+      const response = await apiService.createBin(binData);
+      console.log('✅ Bin created:', response.data.binId);
+      setBins(prev => [response.data, ...prev]);
+      return { success: true, data: response.data };
+    } catch (err) {
+      setError(err.message);
+      console.error('❌ Error creating bin:', err);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
   };
 
   /**
    * Updates an existing bin
-   * @param {number} binId - ID of the bin to update
+   * @param {string} binId - MongoDB ID of the bin to update
    * @param {Object} updates - Fields to update
+   * @returns {Object} Success/error response
    */
-  const updateBin = (binId, updates) => {
-    setBins((prevBins) =>
-      prevBins.map((bin) =>
-        bin.id === binId ? { ...bin, ...updates } : bin
-      )
-    );
+  const updateBin = async (binId, updates) => {
+    try {
+      setLoading(true);
+      const response = await apiService.updateBin(binId, updates);
+      console.log('✅ Bin updated:', binId);
+      setBins(prev => prev.map(bin => 
+        bin._id === binId ? response.data : bin
+      ));
+      return { success: true, data: response.data };
+    } catch (err) {
+      setError(err.message);
+      console.error('❌ Error updating bin:', err);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
   };
 
   /**
    * Deletes a bin by ID
-   * @param {number} binId - ID of the bin to delete
+   * @param {string} binId - MongoDB ID of the bin to delete
+   * @returns {Object} Success/error response
    */
-  const deleteBin = (binId) => {
-    setBins((prevBins) => prevBins.filter((bin) => bin.id !== binId));
+  const deleteBin = async (binId) => {
+    try {
+      setLoading(true);
+      await apiService.deleteBin(binId);
+      console.log('✅ Bin deleted:', binId);
+      setBins(prev => prev.filter(bin => bin._id !== binId));
+      return { success: true };
+    } catch (err) {
+      setError(err.message);
+      console.error('❌ Error deleting bin:', err);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
   };
 
   /**
    * Gets a bin by ID
-   * @param {number} binId - ID of the bin to find
+   * @param {string} binId - MongoDB ID of the bin to find
    * @returns {Object|undefined} The bin object or undefined
    */
   const getBinById = (binId) => {
-    return bins.find((bin) => bin.id === binId);
+    return bins.find(bin => bin._id === binId);
   };
 
   /**
@@ -117,16 +134,16 @@ export const BinsProvider = ({ children }) => {
    * @returns {Array} Array of bins with the specified status
    */
   const getBinsByStatus = (status) => {
-    return bins.filter((bin) => bin.status === status);
+    return bins.filter(bin => bin.status === status);
   };
 
   /**
    * Gets bins filtered by waste type
-   * @param {string} wasteType - Waste type to filter by
-   * @returns {Array} Array of bins with the specified waste type
+   * @param {string} binType - Bin type to filter by
+   * @returns {Array} Array of bins with the specified bin type
    */
-  const getBinsByWasteType = (wasteType) => {
-    return bins.filter((bin) => bin.wasteType === wasteType);
+  const getBinsByWasteType = (binType) => {
+    return bins.filter(bin => bin.binType === binType);
   };
 
   /**
@@ -134,7 +151,7 @@ export const BinsProvider = ({ children }) => {
    * @returns {Array} Sorted array of bins
    */
   const getAllBinsSorted = () => {
-    return [...bins].sort((a, b) => b.createdAt - a.createdAt);
+    return [...bins].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   };
 
   /**
@@ -144,18 +161,23 @@ export const BinsProvider = ({ children }) => {
   const getBinsStatistics = () => {
     return {
       total: bins.length,
-      pending: bins.filter((bin) => bin.status === 'pending').length,
-      completed: bins.filter((bin) => bin.status === 'completed').length,
+      active: bins.filter(bin => bin.status === 'active').length,
+      full: bins.filter(bin => bin.status === 'full').length,
+      maintenance: bins.filter(bin => bin.status === 'maintenance').length,
       byWasteType: {
-        general: bins.filter((bin) => bin.wasteType === 'general').length,
-        recyclable: bins.filter((bin) => bin.wasteType === 'recyclable').length,
-        organic: bins.filter((bin) => bin.wasteType === 'organic').length,
+        'General Waste': bins.filter(bin => bin.binType === 'General Waste').length,
+        'Recyclable': bins.filter(bin => bin.binType === 'Recyclable').length,
+        'Organic': bins.filter(bin => bin.binType === 'Organic').length,
+        'Hazardous': bins.filter(bin => bin.binType === 'Hazardous').length,
       },
     };
   };
 
   const value = {
     bins,
+    loading,
+    error,
+    fetchBins,
     addBin,
     updateBin,
     deleteBin,
