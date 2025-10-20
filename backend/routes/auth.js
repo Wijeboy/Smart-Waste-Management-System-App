@@ -5,7 +5,8 @@ const {
   register,
   login,
   getProfile,
-  updateProfile
+  updateProfile,
+  adminLogin
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
@@ -44,6 +45,7 @@ const loginValidation = [
 // Routes
 router.post('/register', registerValidation, register);
 router.post('/login', loginValidation, login);
+router.post('/admin-login', adminLogin);
 router.get('/profile', protect, getProfile);
 router.put('/profile', protect, updateProfile);
 

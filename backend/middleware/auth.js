@@ -25,7 +25,18 @@ exports.protect = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Get user from token
+    // Check if this is an admin token (hardcoded admin login)
+    if (decoded.role === 'admin' && decoded.id && decoded.id.startsWith('admin-')) {
+      req.user = {
+        id: decoded.id,
+        username: decoded.username,
+        role: 'admin',
+        isActive: true
+      };
+      return next();
+    }
+
+    // Get user from token (for regular users)
     req.user = await User.findById(decoded.id);
 
     if (!req.user) {

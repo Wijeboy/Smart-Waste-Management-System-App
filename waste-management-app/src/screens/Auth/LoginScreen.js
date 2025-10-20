@@ -20,7 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 import { COLORS, FONTS } from '../../constants/theme';
 
 const LoginScreen = ({ navigation }) => {
-  const { login, loading } = useAuth();
+  const { login, adminLogin, loading } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -59,6 +59,14 @@ const LoginScreen = ({ navigation }) => {
 
     if (!result.success) {
       Alert.alert('Login Failed', result.error);
+    }
+  };
+
+  const handleAdminLogin = async () => {
+    const result = await adminLogin();
+
+    if (!result.success) {
+      Alert.alert('Admin Login Failed', result.error);
     }
   };
 
@@ -116,6 +124,24 @@ const LoginScreen = ({ navigation }) => {
               <ActivityIndicator color={COLORS.textPrimary} />
             ) : (
               <Text style={styles.buttonText}>Login</Text>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.adminButton, loading && styles.buttonDisabled]}
+            onPress={handleAdminLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.primaryDarkTeal} />
+            ) : (
+              <Text style={styles.adminButtonText}>🔑 Quick Admin Login</Text>
             )}
           </TouchableOpacity>
 
@@ -202,6 +228,36 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: COLORS.textPrimary,
+    fontSize: FONTS.size.body,
+    fontWeight: FONTS.weight.bold,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.progressBarBg,
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    fontSize: FONTS.size.small,
+    color: COLORS.iconGray,
+    fontWeight: FONTS.weight.semiBold,
+  },
+  adminButton: {
+    backgroundColor: COLORS.lightBackground,
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.primaryDarkTeal,
+    borderStyle: 'dashed',
+  },
+  adminButtonText: {
+    color: COLORS.primaryDarkTeal,
     fontSize: FONTS.size.body,
     fontWeight: FONTS.weight.bold,
   },

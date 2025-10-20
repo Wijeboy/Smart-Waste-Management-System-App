@@ -122,6 +122,34 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const adminLogin = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await apiService.adminLogin({ 
+        username: 'admin', 
+        password: 'admin123' 
+      });
+      
+      const { user: userData, token } = response.data;
+      
+      await AsyncStorage.setItem('authToken', token);
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      
+      apiService.setToken(token);
+      setUser(userData);
+      
+      return { success: true };
+    } catch (err) {
+      const errorMessage = err.message || 'Admin login failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -130,6 +158,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUserProfile,
+    adminLogin,
     isAuthenticated: !!user,
   };
 

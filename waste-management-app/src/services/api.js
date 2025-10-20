@@ -103,6 +103,13 @@ class ApiService {
     });
   }
 
+  async adminLogin(credentials) {
+    return this.request('/auth/admin-login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+  }
+
   async getProfile() {
     return this.request('/auth/profile', {
       method: 'GET',
