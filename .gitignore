@@ -1,2 +1,4 @@
 .windsurf/
 .cursor/
+.backend/node_modules
+.waste-management-app/node_modules

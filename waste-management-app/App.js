@@ -6,10 +6,11 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import AppNavigator from './src/navigation/AppNavigator';
+import RootNavigator from './src/navigation/RootNavigator';
 import { RouteProvider } from './src/context/RouteContext';
 import { BinsProvider } from './src/context/BinsContext';
 import { UserProvider } from './src/context/UserContext';
+import { AuthProvider } from './src/context/AuthContext';
 
 /**
  * App
@@ -18,15 +19,17 @@ import { UserProvider } from './src/context/UserContext';
  */
 export default function App() {
   return (
-    <UserProvider>
-      <BinsProvider>
-        <RouteProvider>
-          <NavigationContainer>
-            <AppNavigator />
-            <StatusBar style="light" />
-          </NavigationContainer>
-        </RouteProvider>
-      </BinsProvider>
-    </UserProvider>
+    <AuthProvider>
+      <UserProvider>
+        <BinsProvider>
+          <RouteProvider>
+            <NavigationContainer>
+              <RootNavigator />
+              <StatusBar style="light" />
+            </NavigationContainer>
+          </RouteProvider>
+        </BinsProvider>
+      </UserProvider>
+    </AuthProvider>
   );
 }

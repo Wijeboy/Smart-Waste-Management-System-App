@@ -11,9 +11,11 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { COLORS, FONTS } from '../../constants/theme';
 import { useUser } from '../../context/UserContext';
+import { useAuth } from '../../context/AuthContext';
 import BottomNavigation from '../../components/BottomNavigation';
 import EditProfileModal from '../../components/EditProfileModal';
 import SettingsToggle from '../../components/SettingsToggle';
@@ -26,6 +28,7 @@ import DeviceStatusCard from '../../components/DeviceStatusCard';
  */
 const ProfileScreen = ({ navigation }) => {
   const { user, updateProfile, updateSetting } = useUser();
+  const { logout } = useAuth();
   const [modalVisible, setModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
 
@@ -40,6 +43,25 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleModalClose = () => {
     setModalVisible(false);
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: () => logout(),
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleTabChange = (tab) => {
@@ -83,6 +105,16 @@ const ProfileScreen = ({ navigation }) => {
         >
           <Text style={styles.editIcon}>✏️</Text>
           <Text style={styles.editText}>Edit Profile</Text>
+        </TouchableOpacity>
+
+        {/* Logout Button */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.logoutIcon}>🚪</Text>
+          <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
         {/* App Settings Section */}
@@ -236,6 +268,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: FONTS.weight.semiBold,
     color: COLORS.primaryDarkTeal,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.alertRed,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  logoutIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: FONTS.weight.semiBold,
+    color: '#FFFFFF',
   },
   section: {
     marginBottom: 20,
