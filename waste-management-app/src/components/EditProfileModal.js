@@ -29,6 +29,7 @@ const EditProfileModal = ({ visible, userData, onSubmit, onClose }) => {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
 
   // Initialize form with user data when modal opens
   useEffect(() => {
@@ -50,17 +51,24 @@ const EditProfileModal = ({ visible, userData, onSubmit, onClose }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validate()) {
-      const formData = {
-        name: name.trim(),
-        role: role.trim(),
-      };
+      setSaving(true);
+      try {
+        const formData = {
+          name: name.trim(),
+          role: role.trim(),
+        };
 
-      if (onSubmit) {
-        onSubmit(formData);
+        if (onSubmit) {
+          await onSubmit(formData);
+        }
+        resetForm();
+      } catch (error) {
+        console.error('Form submission error:', error);
+      } finally {
+        setSaving(false);
       }
-      resetForm();
     }
   };
 
@@ -139,17 +147,21 @@ const EditProfileModal = ({ visible, userData, onSubmit, onClose }) => {
             {/* Action Buttons */}
             <View style={styles.buttonContainer}>
               <TouchableOpacity
-                style={styles.submitButton}
+                style={[styles.submitButton, saving && styles.submitButtonDisabled]}
                 onPress={handleSubmit}
                 activeOpacity={0.8}
+                disabled={saving}
               >
-                <Text style={styles.submitButtonText}>💾 Save Changes</Text>
+                <Text style={styles.submitButtonText}>
+                  {saving ? '⏳ Saving...' : '💾 Save Changes'}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={handleCancel}
                 activeOpacity={0.8}
+                disabled={saving}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -266,6 +278,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    opacity: 0.7,
   },
   submitButtonText: {
     fontSize: 16,

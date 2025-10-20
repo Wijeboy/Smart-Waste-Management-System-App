@@ -36,9 +36,32 @@ const ProfileScreen = ({ navigation }) => {
     setModalVisible(true);
   };
 
-  const handleProfileUpdate = (formData) => {
-    updateProfile(formData);
-    setModalVisible(false);
+  const handleProfileUpdate = async (formData) => {
+    try {
+      const result = await updateProfile(formData);
+      
+      if (result && result.success) {
+        setModalVisible(false);
+        Alert.alert(
+          'Success',
+          'Your profile has been updated successfully!',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Error',
+          result?.error || 'Failed to update profile. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      Alert.alert(
+        'Error',
+        'An unexpected error occurred. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleModalClose = () => {

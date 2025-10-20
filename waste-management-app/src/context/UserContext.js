@@ -21,7 +21,7 @@ const UserContext = createContext();
  */
 export const UserProvider = ({ children }) => {
   // Get real user from AuthContext
-  const { user: authUser } = useAuth();
+  const { user: authUser, updateUserProfile } = useAuth();
   
   // Local settings state
   const [settings, setSettings] = useState({
@@ -43,14 +43,41 @@ export const UserProvider = ({ children }) => {
 
   /**
    * Updates user profile information
-   * Note: This should ideally call the API to update the backend
-   * For now, it only updates local state
-   * @param {Object} updates - Fields to update
+   * Calls the API to update the backend and refreshes user data
+   * @param {Object} updates - Fields to update (name, role, etc.)
    */
-  const updateProfile = (updates) => {
-    console.log('Profile update requested:', updates);
-    // TODO: Call API to update user profile
-    // For now, this is a no-op since user comes from AuthContext
+  const updateProfile = async (updates) => {
+    console.log('📝 Profile update requested:', updates);
+    
+    try {
+      // Parse name into firstName and lastName
+      const nameParts = updates.name ? updates.name.trim().split(' ') : [];
+      const firstName = nameParts[0] || authUser?.firstName || '';
+      const lastName = nameParts.slice(1).join(' ') || authUser?.lastName || '';
+      
+      // Prepare update data for backend
+      const profileData = {
+        firstName,
+        lastName,
+        role: updates.role || authUser?.role,
+      };
+      
+      console.log('📤 Sending to API:', profileData);
+      
+      // Call AuthContext's updateUserProfile which handles API call and state update
+      const result = await updateUserProfile(profileData);
+      
+      if (result.success) {
+        console.log('✅ Profile updated successfully');
+        return { success: true };
+      } else {
+        console.error('❌ Profile update failed:', result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error('❌ Profile update error:', error);
+      return { success: false, error: error.message };
+    }
   };
 
   /**
