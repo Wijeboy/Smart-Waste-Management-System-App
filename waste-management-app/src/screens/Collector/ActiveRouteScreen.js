@@ -35,8 +35,18 @@ const ActiveRouteScreen = ({ route, navigation }) => {
   const loadRouteData = async () => {
     try {
       setLoading(true);
-      const response = await apiService.getRouteById(routeId);
-      const data = response.data.route;
+      // Collectors use /routes/my-routes, not admin endpoint
+      const response = await apiService.getMyRoutes();
+      const myRoutes = response.data.routes; // ← routes is nested in data
+      
+      // Find the route with matching ID
+      const data = myRoutes.find(r => r._id === routeId);
+      
+      if (!data) {
+        Alert.alert('Error', 'Route not found or not assigned to you');
+        navigation.goBack();
+        return;
+      }
       
       // Auto-start if scheduled
       if (data.status === 'scheduled') {

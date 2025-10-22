@@ -75,13 +75,8 @@ export const AuthProvider = ({ children }) => {
       
       const response = await apiService.register(userData);
       
-      const { user: newUser, token } = response.data;
-      
-      await AsyncStorage.setItem('authToken', token);
-      await AsyncStorage.setItem('user', JSON.stringify(newUser));
-      
-      apiService.setToken(token);
-      setUser(newUser);
+      // Don't auto-login after registration
+      // Just return success
       
       return { success: true };
     } catch (err) {

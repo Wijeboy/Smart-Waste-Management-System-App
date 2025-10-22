@@ -148,6 +148,18 @@ const RegisterScreen = ({ navigation }) => {
 
     if (!result.success) {
       Alert.alert('Registration Failed', result.error);
+    } else {
+      // Navigate to login screen after successful registration
+      Alert.alert(
+        'Registration Successful',
+        'Your account has been created successfully. Please login to continue.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('Login')
+          }
+        ]
+      );
     }
   };
 

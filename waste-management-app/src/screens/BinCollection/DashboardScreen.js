@@ -48,9 +48,12 @@ const DashboardScreen = ({ navigation }) => {
     getStatistics, 
     routeInfo, 
     impactMetrics, 
-    collectionsByType 
+    collectionsByType,
+    routes,
+    fetchMyRoutes 
   } = useRoute();
   const { getUserFirstName } = useUser();
+  const [todayRoute, setTodayRoute] = useState(null);
   
   const [currentTime, setCurrentTime] = useState(getCurrentTime());
   const [statusBarTime, setStatusBarTime] = useState(getCurrentTime());
@@ -65,12 +68,41 @@ const DashboardScreen = ({ navigation }) => {
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [scaleAnim] = useState(new Animated.Value(0));
   
-  const stats = getStatistics();
+  const globalStats = getStatistics(); // Keep for impact section
   const greeting = getGreeting();
   const userName = getUserFirstName();
   
+  // Calculate stats from today's route (not all bins)
+  const stats = todayRoute && todayRoute.bins ? {
+    completed: todayRoute.bins.filter(b => b.status === 'collected').length,
+    total: todayRoute.bins.length,
+    pending: todayRoute.bins.filter(b => b.status === 'pending').length,
+    efficiency: todayRoute.bins.length > 0 
+      ? Math.round((todayRoute.bins.filter(b => b.status === 'collected').length / todayRoute.bins.length) * 100)
+      : 0
+  } : { completed: 0, total: 0, pending: 0, efficiency: 0 };
+  
   // Check if all bins are collected
   const allCollected = stats.total > 0 && stats.completed === stats.total;
+
+  // Load today's route
+  useEffect(() => {
+    fetchMyRoutes();
+  }, []);
+
+  // Check for today's route
+  useEffect(() => {
+    if (routes && routes.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const route = routes.find(r => {
+        const routeDate = new Date(r.scheduledDate).toISOString().split('T')[0];
+        return routeDate === today && (r.status === 'scheduled' || r.status === 'in-progress');
+      });
+      setTodayRoute(route || null);
+    } else {
+      setTodayRoute(null);
+    }
+  }, [routes]);
 
   // Update clock and date every minute
   useEffect(() => {
@@ -117,9 +149,28 @@ const DashboardScreen = ({ navigation }) => {
     // TODO: Navigate to notifications screen
   };
 
+  // Calculate accurate route progress
+  const calculateRouteProgress = (route) => {
+    if (!route || !route.bins || route.bins.length === 0) return 0;
+    const collected = route.bins.filter(b => b.status === 'collected').length;
+    return Math.round((collected / route.bins.length) * 100);
+  };
+
+  const getCollectedCount = (route) => {
+    if (!route || !route.bins) return 0;
+    return route.bins.filter(b => b.status === 'collected').length;
+  };
+
+  const getTotalBinsCount = (route) => {
+    if (!route || !route.bins) return 0;
+    return route.bins.length;
+  };
+
   // Handle progress section press
   const handleProgressPress = () => {
-    navigation.navigate('RouteManagement');
+    if (todayRoute) {
+      navigation.navigate('RouteManagement');
+    }
   };
 
   // Handle tab change
@@ -200,24 +251,41 @@ const DashboardScreen = ({ navigation }) => {
             </Text>
           </View>
 
-          {/* Progress Section (Touchable) */}
+          {/* Progress Section (Touchable only if route exists) */}
           <TouchableOpacity 
             style={styles.progressSection}
-            onPress={handleProgressPress}
-            activeOpacity={0.9}
+            onPress={todayRoute ? handleProgressPress : null}
+            activeOpacity={todayRoute ? 0.9 : 1}
+            disabled={!todayRoute}
             testID="progress-section-touchable"
           >
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressLabel}>🚛 Route Progress</Text>
-              <Text style={styles.progressMeta}>⏱ {stats.percentage}% • ETA</Text>
-            </View>
-            <ProgressBar 
-              percentage={stats.percentage} 
-              showPercentage={false}
-              height={8}
-              fillColor="#FFFFFF"
-              backgroundColor="rgba(255, 255, 255, 0.3)"
-            />
+            {todayRoute ? (
+              <>
+                <View style={styles.progressHeader}>
+                  <Text style={styles.progressLabel}>🚛 {todayRoute.routeName}</Text>
+                  <Text style={styles.progressMeta}>🕐 {todayRoute.scheduledTime}</Text>
+                </View>
+                <ProgressBar 
+                  percentage={calculateRouteProgress(todayRoute)} 
+                  showPercentage={false}
+                  height={8}
+                  fillColor="#FFFFFF"
+                  backgroundColor="rgba(255, 255, 255, 0.3)"
+                />
+                <Text style={styles.progressStatus}>
+                  {todayRoute.status === 'scheduled' 
+                    ? `⚠️ Route not started - ${getTotalBinsCount(todayRoute)} bins pending`
+                    : `${getCollectedCount(todayRoute)}/${getTotalBinsCount(todayRoute)} bins collected`
+                  }
+                </Text>
+              </>
+            ) : (
+              <View style={styles.noRouteContainer}>
+                <Text style={styles.noRouteIcon}>📭</Text>
+                <Text style={styles.noRouteText}>No assigned route for today</Text>
+                <Text style={styles.noRouteSubtext}>Contact your admin</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           {/* Stat Cards (Inside Header) */}
@@ -239,7 +307,7 @@ const DashboardScreen = ({ navigation }) => {
             >
               <Text style={styles.headerStatIcon} testID="efficiency-icon">↻</Text>
               <Text style={styles.headerStatLabel}>Efficiency</Text>
-              <Text style={styles.headerStatValue}>{stats.efficiency}</Text>
+              <Text style={styles.headerStatValue}>{stats.efficiency}%</Text>
             </View>
           </View>
         </View>
@@ -416,6 +484,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: FONTS.weight.regular,
     color: COLORS.textPrimary,
+  },
+  progressStatus: {
+    fontSize: 12,
+    fontWeight: FONTS.weight.regular,
+    color: COLORS.textPrimary,
+    marginTop: 8,
+  },
+  noRouteContainer: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  noRouteIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  noRouteText: {
+    fontSize: 13,
+    fontWeight: FONTS.weight.semiBold,
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  noRouteSubtext: {
+    fontSize: 11,
+    color: COLORS.textPrimary,
+    opacity: 0.7,
   },
 
   // Header Stat Cards Row

@@ -16,6 +16,7 @@ import {
 import { COLORS, FONTS } from '../../constants/theme';
 import { useBins } from '../../context/BinsContext';
 import { useUser } from '../../context/UserContext';
+import { useAuth } from '../../context/AuthContext';
 import BinListItem from '../../components/BinListItem';
 import RegisterBinModal from '../../components/RegisterBinModal';
 import BottomNavigation from '../../components/BottomNavigation';
@@ -28,11 +29,18 @@ import BottomNavigation from '../../components/BottomNavigation';
 const ReportsScreen = ({ navigation }) => {
   const { bins, addBin, updateBin, deleteBin, getAllBinsSorted } = useBins();
   const { getUserDisplayName } = useUser();
+  const { user } = useAuth();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedBin, setSelectedBin] = useState(null);
   const [activeTab, setActiveTab] = useState('reports');
 
-  const sortedBins = getAllBinsSorted();
+  // Filter bins to show only those created by logged-in collector
+  const myBins = bins.filter(bin => bin.createdBy === user?._id);
+  const sortedBins = myBins.sort((a, b) => {
+    const dateA = new Date(a.createdAt || 0);
+    const dateB = new Date(b.createdAt || 0);
+    return dateB - dateA;
+  });
   const userName = getUserDisplayName();
 
   const handleAddBin = () => {
