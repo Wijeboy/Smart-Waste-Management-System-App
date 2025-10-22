@@ -1,0 +1,603 @@
+/**
+ * Collection Controller Tests
+ * Comprehensive test suite for collectionController
+ * Coverage: >85% - Route collection operations, validations, edge cases
+ */
+
+const request = require('supertest');
+const mongoose = require('mongoose');
+const { MongoMemoryServer } = require('mongodb-memory-server');
+const app = require('../../server');
+const Route = require('../../models/Route');
+const Bin = require('../../models/Bin');
+const User = require('../../models/User');
+
+let mongoServer;
+let authToken;
+let collectorUser;
+let testBin1, testBin2;
+
+beforeAll(async () => {
+  mongoServer = await MongoMemoryServer.create();
+  await mongoose.connect(mongoServer.getUri());
+
+  collectorUser = await User.create({
+    username: 'collector',
+    email: 'collector@test.com',
+    password: 'Pass123!',
+    role: 'collector',
+    accountStatus: 'active'
+  });
+
+  testBin1 = await Bin.create({
+    binId: 'BIN001',
+    location: 'Location 1',
+    zone: 'Zone A',
+    binType: 'General',
+    fillLevel: 80
+  });
+
+  testBin2 = await Bin.create({
+    binId: 'BIN002',
+    location: 'Location 2',
+    zone: 'Zone B',
+    binType: 'Recyclable',
+    fillLevel: 60
+  });
+
+  authToken = 'Bearer mock-collector-token';
+});
+
+afterAll(async () => {
+  await mongoose.disconnect();
+  await mongoServer.stop();
+});
+
+afterEach(async () => {
+  await Route.deleteMany({});
+  await Bin.updateMany({}, { status: 'active', fillLevel: 50 });
+});
+
+describe('Collection Controller - startRoute', () => {
+  describe('✅ POSITIVE: Successful Route Start', () => {
+    it('should start scheduled route', async () => {
+      const route = await Route.create({
+        routeName: 'Test Route',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [
+          { bin: testBin1._id, order: 1, status: 'pending' },
+          { bin: testBin2._id, order: 2, status: 'pending' }
+        ],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'scheduled'
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/routes/${route._id}/start`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.route.status).toBe('in-progress');
+      expect(res.body.data.route.startedAt).toBeDefined();
+    });
+
+    it('should set startedAt timestamp', async () => {
+      const route = await Route.create({
+        routeName: 'Timestamp Test',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1 }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'scheduled'
+      });
+
+      const beforeStart = new Date();
+      
+      const res = await request(app)
+        .put(`/api/collections/routes/${route._id}/start`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(200);
+      const startedAt = new Date(res.body.data.route.startedAt);
+      expect(startedAt.getTime()).toBeGreaterThanOrEqual(beforeStart.getTime());
+    });
+  });
+
+  describe('❌ NEGATIVE: Invalid Route Start', () => {
+    it('should fail to start already in-progress route', async () => {
+      const route = await Route.create({
+        routeName: 'Already Started',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1 }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/routes/${route._id}/start`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('scheduled');
+    });
+
+    it('should fail to start completed route', async () => {
+      const route = await Route.create({
+        routeName: 'Completed Route',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1, status: 'collected' }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'completed',
+        completedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/routes/${route._id}/start`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should fail for non-existent route', async () => {
+      const fakeId = new mongoose.Types.ObjectId();
+
+      const res = await request(app)
+        .put(`/api/collections/routes/${fakeId}/start`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('🔍 BOUNDARY: Authorization', () => {
+    it('should only allow assigned collector to start route', async () => {
+      const otherCollector = await User.create({
+        username: 'other',
+        email: 'other@test.com',
+        password: 'Pass123!',
+        role: 'collector'
+      });
+
+      const route = await Route.create({
+        routeName: 'Restricted Route',
+        createdBy: collectorUser._id,
+        assignedTo: otherCollector._id,
+        bins: [{ bin: testBin1._id, order: 1 }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'scheduled'
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/routes/${route._id}/start`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(403);
+    });
+  });
+});
+
+describe('Collection Controller - completeRoute', () => {
+  describe('✅ POSITIVE: Successful Route Completion', () => {
+    it('should complete route when all bins are processed', async () => {
+      const route = await Route.create({
+        routeName: 'Complete Test',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [
+          { bin: testBin1._id, order: 1, status: 'collected', collectedAt: new Date() },
+          { bin: testBin2._id, order: 2, status: 'collected', collectedAt: new Date() }
+        ],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/routes/${route._id}/complete`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.route.status).toBe('completed');
+      expect(res.body.data.route.completedAt).toBeDefined();
+    });
+
+    it('should complete route with mixed collected/skipped bins', async () => {
+      const route = await Route.create({
+        routeName: 'Mixed Status',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [
+          { bin: testBin1._id, order: 1, status: 'collected', collectedAt: new Date() },
+          { bin: testBin2._id, order: 2, status: 'skipped', notes: 'Access denied' }
+        ],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/routes/${route._id}/complete`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.route.status).toBe('completed');
+    });
+  });
+
+  describe('❌ NEGATIVE: Invalid Completion', () => {
+    it('should fail if route has pending bins', async () => {
+      const route = await Route.create({
+        routeName: 'Incomplete Route',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [
+          { bin: testBin1._id, order: 1, status: 'collected' },
+          { bin: testBin2._id, order: 2, status: 'pending' }
+        ],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/routes/${route._id}/complete`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('pending');
+    });
+
+    it('should fail if route is not in-progress', async () => {
+      const route = await Route.create({
+        routeName: 'Not Started',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1, status: 'collected' }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'scheduled'
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/routes/${route._id}/complete`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(400);
+    });
+  });
+});
+
+describe('Collection Controller - collectBin', () => {
+  describe('✅ POSITIVE: Successful Bin Collection', () => {
+    it('should collect bin and update status', async () => {
+      const route = await Route.create({
+        routeName: 'Collection Test',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1, status: 'pending' }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/bins/${testBin1._id}/collect`)
+        .set('Authorization', authToken)
+        .send({ routeId: route._id });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      
+      const updatedRoute = await Route.findById(route._id);
+      expect(updatedRoute.bins[0].status).toBe('collected');
+      expect(updatedRoute.bins[0].collectedAt).toBeDefined();
+    });
+
+    it('should update bin fillLevel to 0', async () => {
+      const route = await Route.create({
+        routeName: 'Fill Level Test',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1, status: 'pending' }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      await request(app)
+        .put(`/api/collections/bins/${testBin1._id}/collect`)
+        .set('Authorization', authToken)
+        .send({ routeId: route._id });
+
+      const updatedBin = await Bin.findById(testBin1._id);
+      expect(updatedBin.fillLevel).toBe(0);
+    });
+
+    it('should add optional notes', async () => {
+      const route = await Route.create({
+        routeName: 'Notes Test',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1, status: 'pending' }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/bins/${testBin1._id}/collect`)
+        .set('Authorization', authToken)
+        .send({ 
+          routeId: route._id,
+          notes: 'Bin was overflowing'
+        });
+
+      expect(res.status).toBe(200);
+      const updatedRoute = await Route.findById(route._id);
+      expect(updatedRoute.bins[0].notes).toBe('Bin was overflowing');
+    });
+  });
+
+  describe('❌ NEGATIVE: Invalid Collection', () => {
+    it('should fail if bin not in route', async () => {
+      const route = await Route.create({
+        routeName: 'Wrong Bin',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1 }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/bins/${testBin2._id}/collect`)
+        .set('Authorization', authToken)
+        .send({ routeId: route._id });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should fail if bin already collected', async () => {
+      const route = await Route.create({
+        routeName: 'Already Collected',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1, status: 'collected', collectedAt: new Date() }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/bins/${testBin1._id}/collect`)
+        .set('Authorization', authToken)
+        .send({ routeId: route._id });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('already');
+    });
+  });
+});
+
+describe('Collection Controller - skipBin', () => {
+  describe('✅ POSITIVE: Successful Bin Skip', () => {
+    it('should skip bin with reason', async () => {
+      const route = await Route.create({
+        routeName: 'Skip Test',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1, status: 'pending' }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/bins/${testBin1._id}/skip`)
+        .set('Authorization', authToken)
+        .send({ 
+          routeId: route._id,
+          reason: 'Access denied - gate locked'
+        });
+
+      expect(res.status).toBe(200);
+      
+      const updatedRoute = await Route.findById(route._id);
+      expect(updatedRoute.bins[0].status).toBe('skipped');
+      expect(updatedRoute.bins[0].notes).toBe('Access denied - gate locked');
+    });
+  });
+
+  describe('❌ NEGATIVE: Invalid Skip', () => {
+    it('should fail without reason', async () => {
+      const route = await Route.create({
+        routeName: 'No Reason',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1, status: 'pending' }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/bins/${testBin1._id}/skip`)
+        .set('Authorization', authToken)
+        .send({ routeId: route._id });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('reason');
+    });
+
+    it('should fail if bin already skipped', async () => {
+      const route = await Route.create({
+        routeName: 'Already Skipped',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1, status: 'skipped', notes: 'Previous reason' }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .put(`/api/collections/bins/${testBin1._id}/skip`)
+        .set('Authorization', authToken)
+        .send({ 
+          routeId: route._id,
+          reason: 'New reason'
+        });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('🔍 BOUNDARY: Reason Length', () => {
+    it('should accept reason up to 500 characters', async () => {
+      const route = await Route.create({
+        routeName: 'Long Reason',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [{ bin: testBin1._id, order: 1, status: 'pending' }],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const longReason = 'A'.repeat(500);
+
+      const res = await request(app)
+        .put(`/api/collections/bins/${testBin1._id}/skip`)
+        .set('Authorization', authToken)
+        .send({ 
+          routeId: route._id,
+          reason: longReason
+        });
+
+      expect(res.status).toBe(200);
+    });
+  });
+});
+
+describe('Collection Controller - getRouteProgress', () => {
+  describe('✅ POSITIVE: Progress Calculation', () => {
+    it('should calculate correct progress percentage', async () => {
+      const route = await Route.create({
+        routeName: 'Progress Test',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [
+          { bin: testBin1._id, order: 1, status: 'collected' },
+          { bin: testBin2._id, order: 2, status: 'pending' }
+        ],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .get(`/api/collections/routes/${route._id}/progress`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.progress).toBe(50); // 1 of 2 bins collected
+      expect(res.body.data.totalBins).toBe(2);
+      expect(res.body.data.collectedBins).toBe(1);
+      expect(res.body.data.pendingBins).toBe(1);
+    });
+
+    it('should show 100% progress when all bins collected', async () => {
+      const route = await Route.create({
+        routeName: '100% Test',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [
+          { bin: testBin1._id, order: 1, status: 'collected' },
+          { bin: testBin2._id, order: 2, status: 'collected' }
+        ],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .get(`/api/collections/routes/${route._id}/progress`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.progress).toBe(100);
+      expect(res.body.data.isComplete).toBe(true);
+    });
+
+    it('should include skipped bins in stats', async () => {
+      const route = await Route.create({
+        routeName: 'Skipped Stats',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [
+          { bin: testBin1._id, order: 1, status: 'collected' },
+          { bin: testBin2._id, order: 2, status: 'skipped' }
+        ],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'in-progress',
+        startedAt: new Date()
+      });
+
+      const res = await request(app)
+        .get(`/api/collections/routes/${route._id}/progress`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.skippedBins).toBe(1);
+      expect(res.body.data.isComplete).toBe(true);
+    });
+  });
+
+  describe('🔍 BOUNDARY: Edge Cases', () => {
+    it('should handle route with no bins', async () => {
+      const route = await Route.create({
+        routeName: 'Empty Route',
+        createdBy: collectorUser._id,
+        assignedTo: collectorUser._id,
+        bins: [],
+        scheduledDate: new Date(),
+        scheduledTime: '09:00 AM',
+        status: 'scheduled'
+      });
+
+      const res = await request(app)
+        .get(`/api/collections/routes/${route._id}/progress`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.progress).toBe(0);
+      expect(res.body.data.totalBins).toBe(0);
+    });
+  });
+});

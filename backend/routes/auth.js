@@ -6,7 +6,10 @@ const {
   login,
   getProfile,
   updateProfile,
-  adminLogin
+  adminLogin,
+  changePassword,
+  updateAccountSettings,
+  deactivateAccount
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
@@ -48,5 +51,10 @@ router.post('/login', loginValidation, login);
 router.post('/admin-login', adminLogin);
 router.get('/profile', protect, getProfile);
 router.put('/profile', protect, updateProfile);
+
+// Account management routes (protected)
+router.post('/change-password', protect, changePassword);
+router.put('/account-settings', protect, updateAccountSettings);
+router.put('/deactivate', protect, deactivateAccount);
 
 module.exports = router;

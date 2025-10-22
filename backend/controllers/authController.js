@@ -315,3 +315,174 @@ exports.adminLogin = async (req, res) => {
     });
   }
 };
+
+// @desc    Change password
+// @route   POST /api/auth/change-password
+// @access  Private
+exports.changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+    
+    // Validation
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required'
+      });
+    }
+    
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New passwords do not match'
+      });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+    
+    // Get user with password
+    const user = await User.findById(req.user.id).select('+password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Verify old password
+    const isMatch = await user.comparePassword(oldPassword);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+    
+    // Update password
+    user.password = newPassword;
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error changing password',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Update account settings
+// @route   PUT /api/auth/account-settings
+// @access  Private
+exports.updateAccountSettings = async (req, res) => {
+  try {
+    const { email, username, address, profileImage } = req.body;
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Check for uniqueness if email or username changed
+    if (email && email !== user.email) {
+      const emailExists = await User.findOne({ email });
+      if (emailExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already in use'
+        });
+      }
+      user.email = email;
+    }
+    
+    if (username && username !== user.username) {
+      const usernameExists = await User.findOne({ username: username.toLowerCase() });
+      if (usernameExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username already taken'
+        });
+      }
+      user.username = username;
+    }
+    
+    // Update other fields
+    if (address !== undefined) user.address = address;
+    if (profileImage !== undefined) user.profileImage = profileImage;
+    
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Account settings updated successfully',
+      data: {
+        user: {
+          id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          username: user.username,
+          email: user.email,
+          nic: user.nic,
+          dateOfBirth: user.dateOfBirth,
+          phoneNo: user.phoneNo,
+          role: user.role,
+          address: user.address,
+          profileImage: user.profileImage
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Update account settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating account settings',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Deactivate account
+// @route   PUT /api/auth/deactivate
+// @access  Private
+exports.deactivateAccount = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    user.isActive = false;
+    user.accountStatus = 'suspended';
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Account deactivated successfully'
+    });
+  } catch (error) {
+    console.error('Deactivate account error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deactivating account',
+      error: error.message
+    });
+  }
+};

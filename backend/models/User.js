@@ -72,6 +72,22 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  profileImage: {
+    type: String,
+    default: null
+  },
+  address: {
+    type: String,
+    trim: true
+  },
+  accountStatus: {
+    type: String,
+    enum: ['active', 'suspended', 'pending'],
+    default: 'active'
+  },
+  lastLogin: {
+    type: Date
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -100,6 +116,12 @@ userSchema.pre('save', function(next) {
 // Compare password method
 userSchema.methods.comparePassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Update last login timestamp
+userSchema.methods.updateLastLogin = function() {
+  this.lastLogin = Date.now();
+  return this.save();
 };
 
 module.exports = mongoose.model('User', userSchema);

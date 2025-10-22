@@ -24,6 +24,19 @@ import AnalysisScreen from '../screens/AnalysisScreen';
 import PerformanceMetricsScreen from '../screens/PerformanceMetricsScreen';
 import AnalyticsReportScreen from '../screens/ReportsScreen';
 
+// Import Admin screens
+import UserManagementScreen from '../screens/Admin/UserManagementScreen';
+import UserDetailScreen from '../screens/Admin/UserDetailScreen';
+import AdminRouteManagementScreen from '../screens/Admin/RouteManagementScreen';
+import RouteDetailScreen from '../screens/Admin/RouteDetailScreen';
+import CreateRouteScreen from '../screens/Admin/CreateRouteScreen';
+import EditRouteScreen from '../screens/Admin/EditRouteScreen';
+import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
+
+// Import Collector screens
+import MyRoutesScreen from '../screens/Collector/MyRoutesScreen';
+import ActiveRouteScreen from '../screens/Collector/ActiveRouteScreen';
+
 const Stack = createNativeStackNavigator();
 
 /**
@@ -147,6 +160,82 @@ const AppNavigator = () => {
         component={AnalyticsReportScreen}
         options={{
           title: 'Reports',
+          headerShown: false,
+        }}
+      />
+
+      {/* Admin Screens */}
+      <Stack.Screen
+        name="AdminDashboard"
+        component={AdminDashboardScreen}
+        options={{
+          title: 'Admin Dashboard',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="UserManagement"
+        component={UserManagementScreen}
+        options={{
+          title: 'User Management',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="UserDetail"
+        component={UserDetailScreen}
+        options={{
+          title: 'User Details',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="AdminRouteManagement"
+        component={AdminRouteManagementScreen}
+        options={{
+          title: 'Route Management',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="RouteDetail"
+        component={RouteDetailScreen}
+        options={{
+          title: 'Route Details',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="CreateRoute"
+        component={CreateRouteScreen}
+        options={{
+          title: 'Create Route',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="EditRoute"
+        component={EditRouteScreen}
+        options={{
+          title: 'Edit Route',
+          headerShown: false,
+        }}
+      />
+
+      {/* Collector Screens */}
+      <Stack.Screen
+        name="MyRoutes"
+        component={MyRoutesScreen}
+        options={{
+          title: 'My Routes',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="ActiveRoute"
+        component={ActiveRouteScreen}
+        options={{
+          title: 'Active Route',
           headerShown: false,
         }}
       />

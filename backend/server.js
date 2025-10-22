@@ -27,6 +27,9 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/bins', require('./routes/bins'));
+app.use('/api/admin/users', require('./routes/users'));
+app.use('/api/routes', require('./routes/routes'));
+app.use('/api/admin/routes', require('./routes/routes'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -150,6 +150,62 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const changePassword = async (oldPassword, newPassword, confirmPassword) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await apiService.changePassword(oldPassword, newPassword, confirmPassword);
+      
+      return { success: true, message: response.message };
+    } catch (err) {
+      const errorMessage = err.message || 'Password change failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateAccountSettings = async (settingsData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await apiService.updateAccountSettings(settingsData);
+      setUser(response.data.user);
+      await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
+      
+      return { success: true, message: response.message };
+    } catch (err) {
+      const errorMessage = err.message || 'Account settings update failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deactivateAccount = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      await apiService.deactivateAccount();
+      
+      // Logout after deactivation
+      await logout();
+      
+      return { success: true, message: 'Account deactivated successfully' };
+    } catch (err) {
+      const errorMessage = err.message || 'Account deactivation failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -159,6 +215,9 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUserProfile,
     adminLogin,
+    changePassword,
+    updateAccountSettings,
+    deactivateAccount,
     isAuthenticated: !!user,
   };
 

@@ -129,6 +129,30 @@ class ApiService {
     });
   }
 
+  // ========================================
+  // Auth Account Management
+  // ========================================
+
+  async changePassword(oldPassword, newPassword, confirmPassword) {
+    return this.request('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ oldPassword, newPassword, confirmPassword }),
+    });
+  }
+
+  async updateAccountSettings(data) {
+    return this.request('/auth/account-settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deactivateAccount() {
+    return this.request('/auth/deactivate', {
+      method: 'PUT',
+    });
+  }
+
   // Bin endpoints
   async getBins(filters = {}) {
     const queryParams = new URLSearchParams(filters).toString();
@@ -198,6 +222,128 @@ class ApiService {
   async getBinStats() {
     return this.request('/bins/stats', {
       method: 'GET',
+    });
+  }
+
+  // ========================================
+  // Admin User Management
+  // ========================================
+
+  async getAllUsers(filters = {}) {
+    const queryParams = new URLSearchParams(filters).toString();
+    return this.request(`/admin/users${queryParams ? `?${queryParams}` : ''}`, {
+      method: 'GET',
+    });
+  }
+
+  async getUserById(id) {
+    return this.request(`/admin/users/${id}`, {
+      method: 'GET',
+    });
+  }
+
+  async updateUserRole(id, role) {
+    return this.request(`/admin/users/${id}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  async suspendUser(id) {
+    return this.request(`/admin/users/${id}/suspend`, {
+      method: 'PUT',
+    });
+  }
+
+  async deleteUser(id) {
+    return this.request(`/admin/users/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ========================================
+  // Admin Route Management
+  // ========================================
+
+  async createRoute(routeData) {
+    return this.request('/admin/routes', {
+      method: 'POST',
+      body: JSON.stringify(routeData),
+    });
+  }
+
+  async getAllRoutes(filters = {}) {
+    const queryParams = new URLSearchParams(filters).toString();
+    return this.request(`/admin/routes${queryParams ? `?${queryParams}` : ''}`, {
+      method: 'GET',
+    });
+  }
+
+  async getRouteById(id) {
+    return this.request(`/admin/routes/${id}`, {
+      method: 'GET',
+    });
+  }
+
+  async updateRoute(id, updates) {
+    return this.request(`/admin/routes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteRoute(id) {
+    return this.request(`/admin/routes/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async assignCollector(routeId, collectorId) {
+    return this.request(`/admin/routes/${routeId}/assign`, {
+      method: 'PUT',
+      body: JSON.stringify({ collectorId }),
+    });
+  }
+
+  async getRouteStats() {
+    return this.request('/admin/routes/stats', {
+      method: 'GET',
+    });
+  }
+
+  // ========================================
+  // Collector Route Management
+  // ========================================
+
+  async getMyRoutes(filters = {}) {
+    const queryParams = new URLSearchParams(filters).toString();
+    return this.request(`/routes/my-routes${queryParams ? `?${queryParams}` : ''}`, {
+      method: 'GET',
+    });
+  }
+
+  async startRoute(routeId) {
+    return this.request(`/routes/${routeId}/start`, {
+      method: 'PUT',
+    });
+  }
+
+  async collectBin(routeId, binId) {
+    return this.request(`/routes/${routeId}/bins/${binId}/collect`, {
+      method: 'PUT',
+    });
+  }
+
+  async skipBin(routeId, binId, reason) {
+    return this.request(`/routes/${routeId}/bins/${binId}/skip`, {
+      method: 'PUT',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async completeRoute(routeId) {
+    return this.request(`/routes/${routeId}/complete`, {
+      method: 'PUT',
     });
   }
 }
