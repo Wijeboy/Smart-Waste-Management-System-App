@@ -277,32 +277,53 @@ exports.adminLogin = async (req, res) => {
       });
     }
 
-    // Create a mock admin user object for token generation
-    const adminUser = {
-      id: 'admin-' + Date.now(),
-      firstName: 'Admin',
-      lastName: 'User',
-      username: 'admin',
-      email: 'admin@wastesystem.com',
-      role: 'admin'
-    };
+    // Try to find existing admin user
+    let adminUser = await User.findOne({ username: ADMIN_USERNAME }).select('+password');
 
-    // Generate token
-    const token = jwt.sign(
-      { 
-        id: adminUser.id,
+    // If admin doesn't exist, create it
+    if (!adminUser) {
+      adminUser = await User.create({
+        firstName: 'Admin',
+        lastName: 'User',
+        username: ADMIN_USERNAME,
+        email: 'admin@wastesystem.com',
+        password: ADMIN_PASSWORD,
+        nic: '999999999V',
+        dateOfBirth: new Date('1990-01-01'),
+        phoneNo: '0771234567',
         role: 'admin',
-        username: adminUser.username
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE }
-    );
+        isActive: true,
+        accountStatus: 'active'
+      });
+    } else {
+      // Verify password for existing admin
+      const isPasswordMatch = await adminUser.comparePassword(ADMIN_PASSWORD);
+      if (!isPasswordMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid admin credentials'
+        });
+      }
+    }
+
+    // Update last login
+    await adminUser.updateLastLogin();
+
+    // Generate token with real MongoDB ObjectId
+    const token = generateToken(adminUser._id);
 
     res.status(200).json({
       success: true,
       message: 'Admin login successful',
       data: {
-        user: adminUser,
+        user: {
+          id: adminUser._id,
+          firstName: adminUser.firstName,
+          lastName: adminUser.lastName,
+          username: adminUser.username,
+          email: adminUser.email,
+          role: adminUser.role
+        },
         token
       }
     });

@@ -3,7 +3,8 @@
  * Enhanced dashboard for admin users with user and route statistics
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -13,6 +14,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { COLORS, FONTS } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
@@ -21,7 +23,7 @@ import { useBins } from '../../context/BinsContext';
 import apiService from '../../services/api';
 
 const AdminDashboardScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { fetchRouteStats } = useRoute();
   const { bins, stats: binStats } = useBins();
   
@@ -33,6 +35,13 @@ const AdminDashboardScreen = ({ navigation }) => {
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  // Refresh dashboard when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardData();
+    }, [])
+  );
 
   const loadDashboardData = async () => {
     try {
@@ -58,6 +67,23 @@ const AdminDashboardScreen = ({ navigation }) => {
   const handleRefresh = () => {
     setRefreshing(true);
     loadDashboardData();
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+          },
+        },
+      ]
+    );
   };
 
   const getGreeting = () => {
@@ -102,7 +128,7 @@ const AdminDashboardScreen = ({ navigation }) => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerLeft}>
             <Text style={styles.greeting}>{getGreeting()}</Text>
             <Text style={styles.userName}>
               {user?.firstName} {user?.lastName}
@@ -111,10 +137,19 @@ const AdminDashboardScreen = ({ navigation }) => {
               <Text style={styles.roleBadgeText}>Admin</Text>
             </View>
           </View>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
-            </Text>
+          <View style={styles.headerRight}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {user?.firstName?.[0]}{user?.lastName?.[0]}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
+              <Text style={styles.logoutIcon}>🚪</Text>
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -123,9 +158,9 @@ const AdminDashboardScreen = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
             {renderQuickAction('👥', 'Manage Users', () => navigation.navigate('UserManagement'))}
-            {renderQuickAction('🚛', 'Manage Routes', () => navigation.navigate('RouteManagement'))}
+            {renderQuickAction('🚛', 'Manage Routes', () => navigation.navigate('AdminRouteManagement'))}
             {renderQuickAction('🗑️', 'View Bins', () => navigation.navigate('BinManagement'))}
-            {renderQuickAction('📊', 'Analytics', () => navigation.navigate('Analytics'))}
+            {renderQuickAction('📊', 'Analytics', () => navigation.navigate('AnalyticsDashboard'))}
           </View>
         </View>
 
@@ -170,7 +205,7 @@ const AdminDashboardScreen = ({ navigation }) => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Route Statistics</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('RouteManagement')}>
+              <TouchableOpacity onPress={() => navigation.navigate('AdminRouteManagement')}>
                 <Text style={styles.viewAllText}>View All →</Text>
               </TouchableOpacity>
             </View>
@@ -210,7 +245,7 @@ const AdminDashboardScreen = ({ navigation }) => {
                 </View>
                 <TouchableOpacity
                   style={styles.alertButton}
-                  onPress={() => navigation.navigate('RouteManagement')}
+                  onPress={() => navigation.navigate('AdminRouteManagement')}
                 >
                   <Text style={styles.alertButtonText}>Assign</Text>
                 </TouchableOpacity>
@@ -310,6 +345,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
+    alignItems: 'center',
+  },
   greeting: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
@@ -340,11 +381,29 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 8,
   },
   avatarText: {
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: FONTS.weight.bold,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+  },
+  logoutIcon: {
+    fontSize: 16,
+  },
+  logoutText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: FONTS.weight.semiBold,
   },
   section: {
     padding: 16,

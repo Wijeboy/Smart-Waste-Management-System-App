@@ -15,7 +15,9 @@ import {
   Alert,
   ActivityIndicator,
   FlatList,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, FONTS } from '../../constants/theme';
 import { useRoute } from '../../context/RouteContext';
 import { useBins } from '../../context/BinsContext';
@@ -39,12 +41,16 @@ const CreateRouteScreen = ({ navigation }) => {
   
   // Form data
   const [routeName, setRouteName] = useState('');
-  const [scheduledDate, setScheduledDate] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('');
+  const [scheduledDate, setScheduledDate] = useState(new Date());
+  const [scheduledTime, setScheduledTime] = useState(new Date());
   const [notes, setNotes] = useState('');
   const [selectedBins, setSelectedBins] = useState([]);
   const [orderedBins, setOrderedBins] = useState([]);
   const [selectedCollector, setSelectedCollector] = useState(null);
+  
+  // Date/Time picker visibility
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   useEffect(() => {
     fetchCollectors();
@@ -52,8 +58,11 @@ const CreateRouteScreen = ({ navigation }) => {
 
   const fetchCollectors = async () => {
     try {
-      const response = await apiService.getAllUsers({ role: 'collector' });
-      setCollectors(response.data.users);
+      const response = await apiService.getAllUsers();
+      // Filter to show only collectors
+      const collectorUsers = response.data.users.filter(user => user.role === 'collector');
+      setCollectors(collectorUsers);
+      console.log('Fetched collectors:', collectorUsers.length);
     } catch (error) {
       console.error('Failed to fetch collectors:', error);
     }
@@ -83,8 +92,8 @@ const CreateRouteScreen = ({ navigation }) => {
   const validateCurrentStep = () => {
     switch (currentStep) {
       case 1:
-        if (!routeName.trim() || !scheduledDate.trim() || !scheduledTime.trim()) {
-          Alert.alert('Error', 'Please fill all required fields');
+        if (!routeName.trim()) {
+          Alert.alert('Error', 'Please enter a route name');
           return false;
         }
         return true;
@@ -103,10 +112,14 @@ const CreateRouteScreen = ({ navigation }) => {
     try {
       setLoading(true);
       
+      // Format date and time
+      const formattedDate = formatDate(scheduledDate);
+      const formattedTime = formatTime(scheduledTime);
+      
       const routeData = {
         routeName,
-        scheduledDate,
-        scheduledTime,
+        scheduledDate: formattedDate,
+        scheduledTime: formattedTime,
         notes,
         bins: orderedBins.map(bin => ({
           binId: bin._id,
@@ -162,6 +175,29 @@ const CreateRouteScreen = ({ navigation }) => {
     }
   };
 
+  // Date/Time picker handlers
+  const onDateChange = (event, selectedDate) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setScheduledDate(selectedDate);
+    }
+  };
+
+  const onTimeChange = (event, selectedTime) => {
+    setShowTimePicker(Platform.OS === 'ios');
+    if (selectedTime) {
+      setScheduledTime(selectedTime);
+    }
+  };
+
+  const formatDate = (date) => {
+    return date.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+  };
+
+  const formatTime = (time) => {
+    return time.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
+  };
+
   const renderStepIndicator = () => (
     <View style={styles.stepIndicator}>
       {STEPS.map((step) => (
@@ -186,39 +222,65 @@ const CreateRouteScreen = ({ navigation }) => {
     switch (currentStep) {
       case 1:
         return (
-          <View style={styles.stepContent}>
+          <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
             <Text style={styles.stepHeading}>Route Details</Text>
+            
+            <Text style={styles.label}>Route Name *</Text>
             <TextInput
               style={styles.input}
-              placeholder="Route Name *"
+              placeholder="Enter route name"
               value={routeName}
               onChangeText={setRouteName}
             />
-            <TextInput
-              style={styles.input}
-              placeholder="Date (YYYY-MM-DD) *"
-              value={scheduledDate}
-              onChangeText={setScheduledDate}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Time (HH:MM) *"
-              value={scheduledTime}
-              onChangeText={setScheduledTime}
-            />
+            
+            <Text style={styles.label}>Scheduled Date *</Text>
+            <TouchableOpacity
+              style={styles.dateTimeButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.dateTimeText}>📅 {formatDate(scheduledDate)}</Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={scheduledDate}
+                mode="date"
+                display="default"
+                onChange={onDateChange}
+                minimumDate={new Date()}
+              />
+            )}
+            
+            <Text style={styles.label}>Scheduled Time *</Text>
+            <TouchableOpacity
+              style={styles.dateTimeButton}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={styles.dateTimeText}>🕐 {formatTime(scheduledTime)}</Text>
+            </TouchableOpacity>
+            {showTimePicker && (
+              <DateTimePicker
+                value={scheduledTime}
+                mode="time"
+                display="default"
+                onChange={onTimeChange}
+              />
+            )}
+            
+            <Text style={styles.label}>Notes (Optional)</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Notes (Optional)"
+              placeholder="Add any notes or instructions"
               value={notes}
               onChangeText={setNotes}
               multiline
+              numberOfLines={4}
             />
-          </View>
+          </ScrollView>
         );
       case 2:
         return (
-          <View style={styles.stepContent}>
-            <Text style={styles.stepHeading}>Select Bins ({selectedBins.length})</Text>
+          <View style={styles.stepContentFlex}>
+            <Text style={styles.stepHeading}>Select Bins ({selectedBins.length} selected)</Text>
             <FlatList
               data={bins}
               keyExtractor={(item) => item._id}
@@ -229,18 +291,27 @@ const CreateRouteScreen = ({ navigation }) => {
                     style={[styles.binItem, isSelected && styles.binItemSelected]}
                     onPress={() => toggleBinSelection(item)}
                   >
-                    <Text style={styles.binId}>{item.binId}</Text>
-                    <Text style={styles.binLocation}>{item.location}</Text>
+                    <View style={styles.checkboxContainer}>
+                      <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                        {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                      </View>
+                    </View>
+                    <View style={styles.binInfo}>
+                      <Text style={styles.binId}>{item.binId}</Text>
+                      <Text style={styles.binLocation}>{item.location} • {item.zone}</Text>
+                    </View>
                   </TouchableOpacity>
                 );
               }}
+              showsVerticalScrollIndicator={false}
             />
           </View>
         );
       case 3:
         return (
-          <View style={styles.stepContent}>
+          <View style={styles.stepContentFlex}>
             <Text style={styles.stepHeading}>Order Bins</Text>
+            <Text style={styles.stepSubheading}>Set the collection order by moving bins up or down</Text>
             <FlatList
               data={orderedBins}
               keyExtractor={(item) => item._id}
@@ -252,54 +323,136 @@ const CreateRouteScreen = ({ navigation }) => {
                     <Text style={styles.binLocation}>{item.location}</Text>
                   </View>
                   <View style={styles.orderControls}>
-                    <TouchableOpacity onPress={() => moveBinUp(index)} disabled={index === 0}>
+                    <TouchableOpacity 
+                      onPress={() => moveBinUp(index)} 
+                      disabled={index === 0}
+                      style={[styles.orderButtonContainer, index === 0 && styles.orderButtonDisabled]}
+                    >
                       <Text style={styles.orderButton}>↑</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => moveBinDown(index)} disabled={index === orderedBins.length - 1}>
+                    <TouchableOpacity 
+                      onPress={() => moveBinDown(index)} 
+                      disabled={index === orderedBins.length - 1}
+                      style={[styles.orderButtonContainer, index === orderedBins.length - 1 && styles.orderButtonDisabled]}
+                    >
                       <Text style={styles.orderButton}>↓</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               )}
+              showsVerticalScrollIndicator={false}
             />
           </View>
         );
       case 4:
         return (
-          <View style={styles.stepContent}>
-            <Text style={styles.stepHeading}>Assign Collector (Optional)</Text>
-            <FlatList
-              data={collectors}
-              keyExtractor={(item) => item._id}
-              renderItem={({ item }) => {
-                const isSelected = selectedCollector?._id === item._id;
-                return (
-                  <TouchableOpacity
-                    style={[styles.collectorItem, isSelected && styles.collectorItemSelected]}
-                    onPress={() => setSelectedCollector(item)}
-                  >
-                    <Text style={styles.collectorName}>
-                      {item.firstName} {item.lastName}
-                    </Text>
-                    <Text style={styles.collectorEmail}>{item.email}</Text>
-                  </TouchableOpacity>
-                );
-              }}
-            />
+          <View style={styles.stepContentFlex}>
+            <Text style={styles.stepHeading}>Assign Collector</Text>
+            <Text style={styles.stepSubheading}>
+              {collectors.length > 0 
+                ? `Select a collector to assign this route (${collectors.length} available)` 
+                : 'No collectors available'}
+            </Text>
+            {collectors.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateIcon}>👤</Text>
+                <Text style={styles.emptyStateText}>No collectors found</Text>
+                <Text style={styles.emptyStateSubtext}>Please create collector accounts first</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={collectors}
+                keyExtractor={(item) => item._id}
+                renderItem={({ item }) => {
+                  const isSelected = selectedCollector?._id === item._id;
+                  return (
+                    <TouchableOpacity
+                      style={[styles.collectorItem, isSelected && styles.collectorItemSelected]}
+                      onPress={() => setSelectedCollector(item)}
+                    >
+                      <View style={styles.collectorAvatar}>
+                        <Text style={styles.collectorAvatarText}>
+                          {item.firstName?.[0]}{item.lastName?.[0]}
+                        </Text>
+                      </View>
+                      <View style={styles.collectorInfo}>
+                        <Text style={styles.collectorName}>
+                          {item.firstName} {item.lastName}
+                        </Text>
+                        <Text style={styles.collectorEmail}>{item.email}</Text>
+                        <Text style={styles.collectorPhone}>{item.phoneNo}</Text>
+                      </View>
+                      {isSelected && (
+                        <View style={styles.selectedBadge}>
+                          <Text style={styles.selectedBadgeText}>✓</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                }}
+                showsVerticalScrollIndicator={false}
+              />
+            )}
           </View>
         );
       case 5:
         return (
-          <ScrollView style={styles.stepContent}>
+          <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
             <Text style={styles.stepHeading}>Review & Submit</Text>
-            <View style={styles.reviewCard}>
-              <Text style={styles.reviewLabel}>Route: {routeName}</Text>
-              <Text style={styles.reviewLabel}>Date: {scheduledDate}</Text>
-              <Text style={styles.reviewLabel}>Time: {scheduledTime}</Text>
-              <Text style={styles.reviewLabel}>Bins: {orderedBins.length}</Text>
-              <Text style={styles.reviewLabel}>
-                Collector: {selectedCollector ? `${selectedCollector.firstName} ${selectedCollector.lastName}` : 'None'}
-              </Text>
+            <Text style={styles.stepSubheading}>Please review the route details before creating</Text>
+            
+            <View style={styles.reviewSection}>
+              <Text style={styles.reviewSectionTitle}>Route Information</Text>
+              <View style={styles.reviewCard}>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Route Name:</Text>
+                  <Text style={styles.reviewValue}>{routeName}</Text>
+                </View>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Date:</Text>
+                  <Text style={styles.reviewValue}>{formatDate(scheduledDate)}</Text>
+                </View>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Time:</Text>
+                  <Text style={styles.reviewValue}>{formatTime(scheduledTime)}</Text>
+                </View>
+                {notes.trim() && (
+                  <View style={styles.reviewRow}>
+                    <Text style={styles.reviewLabel}>Notes:</Text>
+                    <Text style={styles.reviewValue}>{notes}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.reviewSection}>
+              <Text style={styles.reviewSectionTitle}>Bins ({orderedBins.length})</Text>
+              {orderedBins.map((bin, index) => (
+                <View key={bin._id} style={styles.reviewBinItem}>
+                  <Text style={styles.reviewBinOrder}>{index + 1}</Text>
+                  <View>
+                    <Text style={styles.reviewBinId}>{bin.binId}</Text>
+                    <Text style={styles.reviewBinLocation}>{bin.location}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.reviewSection}>
+              <Text style={styles.reviewSectionTitle}>Assigned Collector</Text>
+              <View style={styles.reviewCard}>
+                {selectedCollector ? (
+                  <>
+                    <Text style={styles.reviewCollectorName}>
+                      {selectedCollector.firstName} {selectedCollector.lastName}
+                    </Text>
+                    <Text style={styles.reviewCollectorEmail}>{selectedCollector.email}</Text>
+                    <Text style={styles.reviewCollectorPhone}>{selectedCollector.phoneNo}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.reviewNoCollector}>No collector assigned</Text>
+                )}
+              </View>
             </View>
           </ScrollView>
         );
@@ -317,11 +470,11 @@ const CreateRouteScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>Create Route</Text>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stepIndicatorScroll}>
         {renderStepIndicator()}
       </ScrollView>
 
-      <View style={styles.content}>{renderCurrentStep()}</View>
+      {renderCurrentStep()}
 
       <View style={styles.footer}>
         {currentStep < 5 ? (
@@ -343,34 +496,68 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: COLORS.primaryDarkTeal },
   backIcon: { fontSize: 24, color: '#FFF', marginRight: 12 },
   headerTitle: { fontSize: 20, fontWeight: FONTS.weight.bold, color: '#FFF' },
-  stepIndicator: { flexDirection: 'row', padding: 16, backgroundColor: '#FFF' },
-  stepItem: { alignItems: 'center', marginRight: 20 },
-  stepCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
+  stepIndicatorScroll: { maxHeight: 90, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  stepIndicator: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12 },
+  stepItem: { alignItems: 'center', marginRight: 24 },
+  stepCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
   stepCircleActive: { backgroundColor: COLORS.primaryDarkTeal },
-  stepIcon: { fontSize: 18 },
-  stepTitle: { fontSize: 10, color: '#6B7280' },
+  stepIcon: { fontSize: 20 },
+  stepTitle: { fontSize: 11, color: '#6B7280', fontWeight: FONTS.weight.medium },
   stepTitleActive: { color: COLORS.primaryDarkTeal, fontWeight: FONTS.weight.bold },
-  content: { flex: 1 },
-  stepContent: { flex: 1, padding: 16 },
-  stepHeading: { fontSize: 20, fontWeight: FONTS.weight.bold, marginBottom: 16 },
-  input: { backgroundColor: '#FFF', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB' },
-  textArea: { height: 80, textAlignVertical: 'top' },
-  binItem: { backgroundColor: '#FFF', padding: 16, borderRadius: 8, marginBottom: 8, borderWidth: 2, borderColor: 'transparent' },
+  stepContent: { padding: 16 },
+  stepContentFlex: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
+  stepHeading: { fontSize: 22, fontWeight: FONTS.weight.bold, marginBottom: 8, color: '#1F2937' },
+  stepSubheading: { fontSize: 14, color: '#6B7280', marginBottom: 16 },
+  label: { fontSize: 14, fontWeight: FONTS.weight.semiBold, color: '#374151', marginBottom: 8, marginTop: 8 },
+  input: { backgroundColor: '#FFF', borderRadius: 8, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 15 },
+  textArea: { height: 100, textAlignVertical: 'top' },
+  dateTimeButton: { backgroundColor: '#FFF', borderRadius: 8, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  dateTimeText: { fontSize: 15, color: '#1F2937', fontWeight: FONTS.weight.medium },
+  binItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 14, borderRadius: 8, marginBottom: 10, borderWidth: 2, borderColor: '#E5E7EB' },
   binItemSelected: { borderColor: COLORS.primaryDarkTeal, backgroundColor: '#F0FDFA' },
-  binId: { fontSize: 16, fontWeight: FONTS.weight.bold },
-  binLocation: { fontSize: 14, color: '#6B7280' },
-  orderedBinItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 12, borderRadius: 8, marginBottom: 8 },
-  orderNumber: { fontSize: 18, fontWeight: FONTS.weight.bold, marginRight: 12, color: COLORS.primaryDarkTeal },
+  checkboxContainer: { marginRight: 12 },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center' },
+  checkboxSelected: { backgroundColor: COLORS.primaryDarkTeal, borderColor: COLORS.primaryDarkTeal },
+  checkmark: { color: '#FFF', fontSize: 16, fontWeight: FONTS.weight.bold },
+  binInfo: { flex: 1 },
+  binId: { fontSize: 16, fontWeight: FONTS.weight.bold, color: '#1F2937' },
+  binLocation: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  orderedBinItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 14, borderRadius: 8, marginBottom: 10, borderWidth: 1, borderColor: '#E5E7EB' },
+  orderNumber: { fontSize: 20, fontWeight: FONTS.weight.bold, marginRight: 14, color: COLORS.primaryDarkTeal, width: 30, textAlign: 'center' },
   orderedBinInfo: { flex: 1 },
   orderControls: { flexDirection: 'row', gap: 8 },
-  orderButton: { fontSize: 20, padding: 8 },
-  collectorItem: { backgroundColor: '#FFF', padding: 16, borderRadius: 8, marginBottom: 8, borderWidth: 2, borderColor: 'transparent' },
+  orderButtonContainer: { padding: 8, backgroundColor: '#F3F4F6', borderRadius: 6 },
+  orderButtonDisabled: { opacity: 0.3 },
+  orderButton: { fontSize: 20, color: COLORS.primaryDarkTeal },
+  collectorItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 14, borderRadius: 8, marginBottom: 10, borderWidth: 2, borderColor: '#E5E7EB' },
   collectorItemSelected: { borderColor: COLORS.primaryDarkTeal, backgroundColor: '#F0FDFA' },
-  collectorName: { fontSize: 16, fontWeight: FONTS.weight.bold },
-  collectorEmail: { fontSize: 14, color: '#6B7280' },
-  reviewCard: { backgroundColor: '#FFF', padding: 16, borderRadius: 8 },
-  reviewLabel: { fontSize: 14, marginBottom: 8 },
-  footer: { padding: 16, backgroundColor: '#FFF' },
+  collectorAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.primaryDarkTeal, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  collectorAvatarText: { color: '#FFF', fontSize: 18, fontWeight: FONTS.weight.bold },
+  collectorInfo: { flex: 1 },
+  collectorName: { fontSize: 16, fontWeight: FONTS.weight.bold, color: '#1F2937' },
+  collectorEmail: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  collectorPhone: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  selectedBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center' },
+  selectedBadgeText: { color: '#FFF', fontSize: 16, fontWeight: FONTS.weight.bold },
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
+  emptyStateIcon: { fontSize: 64, marginBottom: 16 },
+  emptyStateText: { fontSize: 18, fontWeight: FONTS.weight.bold, color: '#1F2937' },
+  emptyStateSubtext: { fontSize: 14, color: '#6B7280', marginTop: 8 },
+  reviewSection: { marginBottom: 20 },
+  reviewSectionTitle: { fontSize: 16, fontWeight: FONTS.weight.bold, color: '#1F2937', marginBottom: 10 },
+  reviewCard: { backgroundColor: '#FFF', padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
+  reviewRow: { marginBottom: 12 },
+  reviewLabel: { fontSize: 13, color: '#6B7280', marginBottom: 4 },
+  reviewValue: { fontSize: 15, fontWeight: FONTS.weight.semiBold, color: '#1F2937' },
+  reviewBinItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB' },
+  reviewBinOrder: { fontSize: 18, fontWeight: FONTS.weight.bold, color: COLORS.primaryDarkTeal, marginRight: 12, width: 30 },
+  reviewBinId: { fontSize: 15, fontWeight: FONTS.weight.semiBold, color: '#1F2937' },
+  reviewBinLocation: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  reviewCollectorName: { fontSize: 16, fontWeight: FONTS.weight.bold, color: '#1F2937', marginBottom: 6 },
+  reviewCollectorEmail: { fontSize: 13, color: '#6B7280', marginBottom: 2 },
+  reviewCollectorPhone: { fontSize: 13, color: '#6B7280' },
+  reviewNoCollector: { fontSize: 14, color: '#9CA3AF', fontStyle: 'italic' },
+  footer: { padding: 16, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
   nextButton: { backgroundColor: COLORS.primaryDarkTeal, padding: 16, borderRadius: 8, alignItems: 'center' },
   nextButtonText: { color: '#FFF', fontSize: 16, fontWeight: FONTS.weight.bold },
   submitButton: { backgroundColor: '#10B981', padding: 16, borderRadius: 8, alignItems: 'center' },

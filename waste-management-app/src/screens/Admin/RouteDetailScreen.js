@@ -13,6 +13,8 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { COLORS, FONTS } from '../../constants/theme';
 import apiService from '../../services/api';
@@ -21,6 +23,10 @@ const RouteDetailScreen = ({ route, navigation }) => {
   const { routeId } = route.params;
   const [routeData, setRouteData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showCollectorModal, setShowCollectorModal] = useState(false);
+  const [collectors, setCollectors] = useState([]);
+  const [loadingCollectors, setLoadingCollectors] = useState(false);
+  const [assigningCollector, setAssigningCollector] = useState(false);
 
   useEffect(() => {
     fetchRouteDetails();
@@ -39,9 +45,39 @@ const RouteDetailScreen = ({ route, navigation }) => {
     }
   };
 
+  const fetchCollectors = async () => {
+    try {
+      setLoadingCollectors(true);
+      const response = await apiService.getAllUsers();
+      // Filter to show only collectors
+      const collectorUsers = response.data.users.filter(user => user.role === 'collector');
+      setCollectors(collectorUsers);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch collectors');
+      console.error('Failed to fetch collectors:', error);
+    } finally {
+      setLoadingCollectors(false);
+    }
+  };
+
   const handleAssignCollector = async () => {
-    // For now, just show an alert. In a full implementation, this would open a picker
-    Alert.alert('Assign Collector', 'Collector assignment feature - to be implemented with user picker');
+    setShowCollectorModal(true);
+    await fetchCollectors();
+  };
+
+  const assignCollectorToRoute = async (collectorId) => {
+    try {
+      setAssigningCollector(true);
+      await apiService.assignCollector(routeId, collectorId);
+      Alert.alert('Success', 'Collector assigned successfully');
+      setShowCollectorModal(false);
+      // Refresh route details
+      await fetchRouteDetails();
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to assign collector');
+    } finally {
+      setAssigningCollector(false);
+    }
   };
 
   const handleDeleteRoute = () => {
@@ -359,6 +395,74 @@ const RouteDetailScreen = ({ route, navigation }) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Collector Assignment Modal */}
+      <Modal
+        visible={showCollectorModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCollectorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Assign Collector</Text>
+              <TouchableOpacity
+                onPress={() => setShowCollectorModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {loadingCollectors ? (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator size="large" color={COLORS.primaryDarkTeal} />
+                <Text style={styles.modalLoadingText}>Loading collectors...</Text>
+              </View>
+            ) : collectors.length === 0 ? (
+              <View style={styles.modalEmpty}>
+                <Text style={styles.modalEmptyIcon}>👤</Text>
+                <Text style={styles.modalEmptyText}>No collectors available</Text>
+                <Text style={styles.modalEmptySubtext}>
+                  Please create collector accounts first
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={collectors}
+                keyExtractor={(item) => item._id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.collectorModalItem}
+                    onPress={() => assignCollectorToRoute(item._id)}
+                    disabled={assigningCollector}
+                  >
+                    <View style={styles.collectorModalAvatar}>
+                      <Text style={styles.collectorModalAvatarText}>
+                        {item.firstName?.[0]}{item.lastName?.[0]}
+                      </Text>
+                    </View>
+                    <View style={styles.collectorModalInfo}>
+                      <Text style={styles.collectorModalName}>
+                        {item.firstName} {item.lastName}
+                      </Text>
+                      <Text style={styles.collectorModalEmail}>{item.email}</Text>
+                      <Text style={styles.collectorModalPhone}>{item.phoneNo}</Text>
+                    </View>
+                    {assigningCollector ? (
+                      <ActivityIndicator size="small" color={COLORS.primaryDarkTeal} />
+                    ) : (
+                      <Text style={styles.collectorModalArrow}>→</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+                contentContainerStyle={styles.modalList}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -740,6 +844,121 @@ const styles = StyleSheet.create({
   dangerButtonArrow: {
     fontSize: 20,
     color: '#EF4444',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: FONTS.weight.bold,
+    color: '#1F2937',
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 20,
+    color: '#6B7280',
+  },
+  modalLoading: {
+    padding: 60,
+    alignItems: 'center',
+  },
+  modalLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  modalEmpty: {
+    padding: 60,
+    alignItems: 'center',
+  },
+  modalEmptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  modalEmptyText: {
+    fontSize: 18,
+    fontWeight: FONTS.weight.bold,
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  modalEmptySubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  modalList: {
+    padding: 16,
+  },
+  collectorModalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  collectorModalAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.primaryDarkTeal,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  collectorModalAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: FONTS.weight.bold,
+  },
+  collectorModalInfo: {
+    flex: 1,
+  },
+  collectorModalName: {
+    fontSize: 16,
+    fontWeight: FONTS.weight.bold,
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  collectorModalEmail: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  collectorModalPhone: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  collectorModalArrow: {
+    fontSize: 24,
+    color: COLORS.primaryDarkTeal,
+    marginLeft: 8,
   },
 });
 

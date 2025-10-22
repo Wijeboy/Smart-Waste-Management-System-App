@@ -11,6 +11,7 @@ import ScanBinScreen from '../screens/BinCollection/ScanBinScreen';
 import ReportsScreen from '../screens/BinCollection/ReportsScreen';
 import ProfileScreen from '../screens/BinCollection/ProfileScreen';
 import { COLORS, FONTS } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
 
 // Import Analytics screens
 import AnalyticsDashboard from '../screens/Analytics/AnalyticsDashboard';
@@ -32,6 +33,7 @@ import RouteDetailScreen from '../screens/Admin/RouteDetailScreen';
 import CreateRouteScreen from '../screens/Admin/CreateRouteScreen';
 import EditRouteScreen from '../screens/Admin/EditRouteScreen';
 import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
+import BinManagementScreen from '../screens/Admin/BinManagementScreen';
 
 // Import Collector screens
 import MyRoutesScreen from '../screens/Collector/MyRoutesScreen';
@@ -45,9 +47,21 @@ const Stack = createNativeStackNavigator();
  * @returns {JSX.Element} The navigation stack
  */
 const AppNavigator = () => {
+  const { user } = useAuth();
+  
+  // Determine initial route based on user role
+  const getInitialRoute = () => {
+    if (user?.role === 'admin') {
+      return 'AdminDashboard';
+    } else if (user?.role === 'collector') {
+      return 'Dashboard'; // Collectors go to Dashboard with bottom nav
+    }
+    return 'Dashboard';
+  };
+
   return (
     <Stack.Navigator
-      initialRouteName="Dashboard"
+      initialRouteName={getInitialRoute()}
       screenOptions={{
         headerStyle: {
           backgroundColor: COLORS.primaryDarkTeal,
@@ -218,6 +232,14 @@ const AppNavigator = () => {
         component={EditRouteScreen}
         options={{
           title: 'Edit Route',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="BinManagement"
+        component={BinManagementScreen}
+        options={{
+          title: 'Bin Management',
           headerShown: false,
         }}
       />

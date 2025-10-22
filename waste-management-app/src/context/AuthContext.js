@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       console.error('Auth check error:', err);
+      // Clear invalid token and logout
       await logout();
     } finally {
       setLoading(false);
