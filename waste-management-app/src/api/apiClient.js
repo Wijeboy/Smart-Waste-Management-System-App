@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // IMPORTANT: Update this IP address to match your computer's local network IP
 // You can find it in your backend server logs when it starts
-const API_BASE_URL = 'http://192.168.1.8:5000/api';
+const API_BASE_URL = 'http://192.168.8.143:3001/api';
 
 /**
  * Create axios instance with base configuration

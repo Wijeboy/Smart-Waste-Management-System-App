@@ -9,15 +9,15 @@ import { Platform } from 'react-native';
 const getApiUrl = () => {
   if (Platform.OS === 'android') {
     // Using actual IP address instead of 10.0.2.2 (more reliable)
-    return 'http://192.168.1.8:5000/api';
+    return 'http://192.168.8.143:3001/api';
   } else if (Platform.OS === 'ios') {
     // iOS simulator can use localhost
-    return 'http://localhost:5000/api';
+    return 'http://localhost:3001/api';
   } else if (Platform.OS === 'web') {
-    return 'http://localhost:5000/api';
+    return 'http://localhost:3001/api';
   }
   // For physical devices
-  return 'http://192.168.1.8:5000/api';
+  return 'http://192.168.8.143:3001/api';
 };
 
 const API_URL = getApiUrl();
