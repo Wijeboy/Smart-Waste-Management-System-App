@@ -511,11 +511,16 @@ export const RouteProvider = ({ children }) => {
   /**
    * Start route (Collector)
    */
-  const startRoute = async (routeId) => {
+  /**
+   * Start route (Collector)
+   * @param {string} routeId - The route ID to start
+   * @param {Object} preRouteChecklist - The completed checklist data
+   */
+  const startRoute = async (routeId, preRouteChecklist) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiService.startRoute(routeId);
+      const response = await apiService.startRoute(routeId, preRouteChecklist);
       setSelectedRoute(response.data.route);
       // Refresh my routes
       if (user?.role === 'collector') {

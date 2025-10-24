@@ -19,6 +19,9 @@ import {
 import { COLORS, FONTS } from '../../constants/theme';
 import { useRoute } from '../../context/RouteContext';
 import apiService from '../../services/api';
+import PreRouteChecklistModal from '../../components/PreRouteChecklistModal';
+import PostRouteSummaryModal from '../../components/PostRouteSummaryModal';
+import { downloadRouteReport, saveRouteReportLocally } from '../../utils/reportGenerator';
 
 const ActiveRouteScreen = ({ route, navigation }) => {
   const { routeId } = route.params;
@@ -29,6 +32,11 @@ const ActiveRouteScreen = ({ route, navigation }) => {
   const [selectedBin, setSelectedBin] = useState(null);
   const [showCollectionModal, setShowCollectionModal] = useState(false);
   const [actualWeight, setActualWeight] = useState('');
+  const [showPreRouteChecklist, setShowPreRouteChecklist] = useState(false);
+  const [checklistLoading, setChecklistLoading] = useState(false);
+  const [showPostRouteSummary, setShowPostRouteSummary] = useState(false);
+  const [completedRouteData, setCompletedRouteData] = useState(null);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   useEffect(() => {
     loadRouteData();
@@ -50,14 +58,10 @@ const ActiveRouteScreen = ({ route, navigation }) => {
         return;
       }
       
-      // Auto-start if scheduled
+      // If scheduled, show pre-route checklist
       if (data.status === 'scheduled') {
-        const result = await startRoute(routeId);
-        if (result.success) {
-          setRouteData(result.data.route);
-        } else {
-          setRouteData(data);
-        }
+        setRouteData(data);
+        setShowPreRouteChecklist(true);
       } else {
         setRouteData(data);
       }
@@ -66,6 +70,29 @@ const ActiveRouteScreen = ({ route, navigation }) => {
       navigation.goBack();
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Handle pre-route checklist completion
+   * Start the route with the checklist data
+   */
+  const handleChecklistComplete = async (checklistData) => {
+    try {
+      setChecklistLoading(true);
+      const result = await startRoute(routeId, checklistData);
+      
+      if (result.success) {
+        setRouteData(result.data.route);
+        setShowPreRouteChecklist(false);
+        Alert.alert('Success', 'Route started successfully! You can now begin collecting bins.');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to start route');
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to start route');
+    } finally {
+      setChecklistLoading(false);
     }
   };
 
@@ -141,18 +168,79 @@ const ActiveRouteScreen = ({ route, navigation }) => {
         {
           text: 'Complete',
           onPress: async () => {
-            const result = await completeRoute(routeData._id);
-            if (result.success) {
-              Alert.alert('Success', 'Route completed successfully', [
-                { text: 'OK', onPress: () => navigation.goBack() },
-              ]);
-            } else {
-              Alert.alert('Error', result.error || 'Failed to complete route');
+            try {
+              const result = await completeRoute(routeData._id);
+              
+              if (result.success) {
+                // Save report locally for offline access
+                await saveRouteReportLocally(result.data.route);
+                
+                // Store completed route data and show summary modal
+                setCompletedRouteData(result.data.route);
+                setShowPostRouteSummary(true);
+              } else {
+                // Network failure or error - save route data locally if available
+                if (routeData) {
+                  await saveRouteReportLocally(routeData);
+                }
+                
+                Alert.alert(
+                  'Error',
+                  result.error || 'Failed to complete route. You can view the route summary in your Profile later.',
+                  [
+                    { text: 'OK', onPress: () => navigation.goBack() },
+                  ]
+                );
+              }
+            } catch (error) {
+              // Save route data locally for offline viewing
+              if (routeData) {
+                await saveRouteReportLocally(routeData);
+              }
+              
+              Alert.alert(
+                'Network Error',
+                'Unable to complete route due to network issues. The route data has been saved locally. You can view the summary in your Profile.',
+                [
+                  { text: 'OK', onPress: () => navigation.goBack() },
+                ]
+              );
             }
           },
         },
       ]
     );
+  };
+
+  /**
+   * Handle download report button press
+   */
+  const handleDownloadReport = async () => {
+    if (!completedRouteData) return;
+
+    try {
+      setDownloadLoading(true);
+      const result = await downloadRouteReport(completedRouteData, 'csv');
+      
+      if (result.success) {
+        Alert.alert('Success', 'Report downloaded successfully!');
+      } else {
+        Alert.alert('Error', result.message || 'Failed to download report');
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to download report');
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
+
+  /**
+   * Handle close summary modal
+   */
+  const handleCloseSummary = () => {
+    setShowPostRouteSummary(false);
+    setCompletedRouteData(null);
+    navigation.goBack();
   };
 
   const getBinStatusColor = (status) => {
@@ -406,6 +494,23 @@ const ActiveRouteScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Pre-Route Checklist Modal */}
+      <PreRouteChecklistModal
+        visible={showPreRouteChecklist}
+        onComplete={handleChecklistComplete}
+        loading={checklistLoading}
+        routeName={routeData?.routeName}
+      />
+
+      {/* Post-Route Summary Modal */}
+      <PostRouteSummaryModal
+        visible={showPostRouteSummary}
+        onClose={handleCloseSummary}
+        onDownloadReport={handleDownloadReport}
+        routeData={completedRouteData}
+        downloadLoading={downloadLoading}
+      />
     </SafeAreaView>
   );
 };

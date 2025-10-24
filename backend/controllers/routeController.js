@@ -407,6 +407,7 @@ exports.getMyRoutes = async (req, res) => {
 // @access  Private/Collector
 exports.startRoute = async (req, res) => {
   try {
+    const { preRouteChecklist } = req.body;
     const route = await Route.findById(req.params.id);
     
     if (!route) {
@@ -432,8 +433,32 @@ exports.startRoute = async (req, res) => {
       });
     }
     
+    // Validate pre-route checklist is provided
+    if (!preRouteChecklist || !preRouteChecklist.items || !Array.isArray(preRouteChecklist.items)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pre-route checklist is required before starting the route'
+      });
+    }
+    
+    // Verify all checklist items are checked
+    const allItemsChecked = preRouteChecklist.items.every(item => item.checked === true);
+    if (!allItemsChecked) {
+      return res.status(400).json({
+        success: false,
+        message: 'All pre-route checklist items must be checked before starting'
+      });
+    }
+    
+    // Update route with checklist and start
     route.status = 'in-progress';
     route.startedAt = Date.now();
+    route.preRouteChecklist = {
+      completed: true,
+      completedAt: preRouteChecklist.completedAt || Date.now(),
+      items: preRouteChecklist.items
+    };
+    
     await route.save();
     await route.populate('bins.bin');
     
@@ -721,11 +746,16 @@ exports.completeRoute = async (req, res) => {
     const startTime = route.startedAt || route.scheduledDate;
     const endTime = new Date();
     
+    // Calculate route duration in minutes
+    const durationMs = endTime - startTime;
+    const routeDuration = Math.round(durationMs / (1000 * 60)); // Convert to minutes
+    
     // Update route with completion data and analytics
     route.status = 'completed';
     route.completedAt = endTime;
     route.endTime = endTime;
     route.startTime = startTime;
+    route.routeDuration = routeDuration;
     route.binsCollected = binsCollected;
     route.wasteCollected = Math.round(wasteCollected);
     route.recyclableWaste = Math.round(recyclableWaste);

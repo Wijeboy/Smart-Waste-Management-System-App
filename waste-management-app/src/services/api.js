@@ -8,16 +8,18 @@ import { Platform } from 'react-native';
 // Determine API URL based on platform
 const getApiUrl = () => {
   if (Platform.OS === 'android') {
-    // Using actual IP address instead of 10.0.2.2 (more reliable)
-    return 'http://192.168.8.143:3001/api';
+    // Use the same network IP as Expo (10.38.245.146)
+    // This ensures Android device/emulator can reach the backend
+    return 'http://10.38.245.146:3001/api';
   } else if (Platform.OS === 'ios') {
-    // iOS simulator can use localhost
-    return 'http://localhost:3001/api';
+    // iOS can use the same network IP
+    return 'http://10.38.245.146:3001/api';
   } else if (Platform.OS === 'web') {
+    // Web version uses localhost since it's running in browser
     return 'http://localhost:3001/api';
   }
-  // For physical devices
-  return 'http://192.168.8.143:3001/api';
+  // Default fallback for physical devices
+  return 'http://10.38.245.146:3001/api';
 };
 
 const API_URL = getApiUrl();
@@ -325,9 +327,16 @@ class ApiService {
     });
   }
 
-  async startRoute(routeId) {
+  async getCompletedRoutes() {
+    return this.request(`/routes/my-routes?status=completed`, {
+      method: 'GET',
+    });
+  }
+
+  async startRoute(routeId, preRouteChecklist) {
     return this.request(`/routes/${routeId}/start`, {
       method: 'PUT',
+      body: JSON.stringify({ preRouteChecklist }),
     });
   }
 

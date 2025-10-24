@@ -10,6 +10,7 @@ import { COLORS, FONTS } from '../../constants/theme';
 import { useRoute } from '../../context/RouteContext';
 import { useAuth } from '../../context/AuthContext';
 import BottomNavigation from '../../components/BottomNavigation';
+import PreRouteChecklistModal from '../../components/PreRouteChecklistModal';
 
 /**
  * RouteManagementScreen
@@ -17,12 +18,14 @@ import BottomNavigation from '../../components/BottomNavigation';
  * @returns {JSX.Element} The RouteManagementScreen component
  */
 const RouteManagementScreen = ({ navigation }) => {
-  const { routes, fetchMyRoutes, loading } = useRoute();
+  const { routes, fetchMyRoutes, loading, startRoute } = useRoute();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('home');
   const [filterTab, setFilterTab] = useState('all');
   const [todayRoute, setTodayRoute] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showPreRouteChecklist, setShowPreRouteChecklist] = useState(false);
+  const [checklistLoading, setChecklistLoading] = useState(false);
 
   // Get today's date in YYYY-MM-DD format
   const getTodayDate = () => {
@@ -73,7 +76,37 @@ const RouteManagementScreen = ({ navigation }) => {
 
   const handleStartRoute = () => {
     if (todayRoute) {
-      navigation.navigate('ActiveRoute', { routeId: todayRoute._id });
+      // Show the pre-route checklist modal
+      setShowPreRouteChecklist(true);
+    }
+  };
+
+  /**
+   * Handle pre-route checklist completion
+   * Start the route with the checklist data, then navigate to ActiveRoute
+   */
+  const handleChecklistComplete = async (checklistData) => {
+    if (!todayRoute) return;
+
+    try {
+      setChecklistLoading(true);
+      const result = await startRoute(todayRoute._id, checklistData);
+      
+      if (result.success) {
+        setShowPreRouteChecklist(false);
+        Alert.alert('Success', 'Route started successfully!', [
+          {
+            text: 'Continue',
+            onPress: () => navigation.navigate('ActiveRoute', { routeId: todayRoute._id }),
+          },
+        ]);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to start route');
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to start route');
+    } finally {
+      setChecklistLoading(false);
     }
   };
 
@@ -243,6 +276,14 @@ const RouteManagementScreen = ({ navigation }) => {
           </>
         )}
       </ScrollView>
+
+      {/* Pre-Route Checklist Modal */}
+      <PreRouteChecklistModal
+        visible={showPreRouteChecklist}
+        onComplete={handleChecklistComplete}
+        loading={checklistLoading}
+        routeName={todayRoute?.routeName}
+      />
 
       {/* Bottom Navigation */}
       <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />

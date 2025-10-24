@@ -71,6 +71,30 @@ const routeSchema = new mongoose.Schema({
   completedAt: {
     type: Date
   },
+  // Pre-route checklist data
+  preRouteChecklist: {
+    completed: {
+      type: Boolean,
+      default: false
+    },
+    completedAt: {
+      type: Date
+    },
+    items: [{
+      id: {
+        type: String,
+        required: true
+      },
+      label: {
+        type: String,
+        required: true
+      },
+      checked: {
+        type: Boolean,
+        default: false
+      }
+    }]
+  },
   notes: {
     type: String,
     maxlength: 500
@@ -96,6 +120,12 @@ const routeSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 100
+  },
+  routeDuration: {
+    type: Number,
+    default: 0,
+    min: 0,
+    comment: 'Route duration in minutes'
   },
   satisfaction: {
     type: Number,

@@ -3,7 +3,7 @@
  * User profile with settings and device status
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { COLORS, FONTS } from '../../constants/theme';
 import { useUser } from '../../context/UserContext';
@@ -20,6 +21,9 @@ import BottomNavigation from '../../components/BottomNavigation';
 import EditProfileModal from '../../components/EditProfileModal';
 import SettingsToggle from '../../components/SettingsToggle';
 import DeviceStatusCard from '../../components/DeviceStatusCard';
+import PostRouteSummaryModal from '../../components/PostRouteSummaryModal';
+import apiService from '../../services/api';
+import { downloadRouteReport, loadSavedRouteReport } from '../../utils/reportGenerator';
 
 /**
  * ProfileScreen Component
@@ -31,6 +35,11 @@ const ProfileScreen = ({ navigation }) => {
   const { logout } = useAuth();
   const [modalVisible, setModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
+  const [completedRoutes, setCompletedRoutes] = useState([]);
+  const [loadingRoutes, setLoadingRoutes] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState(null);
+  const [showRouteSummary, setShowRouteSummary] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   const handleEditProfile = () => {
     setModalVisible(true);
@@ -96,6 +105,57 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
+  // Load completed routes on mount
+  useEffect(() => {
+    if (user?.role === 'collector') {
+      loadCompletedRoutes();
+    }
+  }, [user]);
+
+  const loadCompletedRoutes = async () => {
+    try {
+      setLoadingRoutes(true);
+      const response = await apiService.getCompletedRoutes();
+      if (response.data && response.data.routes) {
+        setCompletedRoutes(response.data.routes);
+      }
+    } catch (error) {
+      console.error('Error loading completed routes:', error);
+      // Routes will be empty, user can still access locally saved ones
+    } finally {
+      setLoadingRoutes(false);
+    }
+  };
+
+  const handleViewRouteSummary = async (route) => {
+    setSelectedRoute(route);
+    setShowRouteSummary(true);
+  };
+
+  const handleDownloadReport = async () => {
+    if (!selectedRoute) return;
+
+    try {
+      setDownloadLoading(true);
+      const result = await downloadRouteReport(selectedRoute, 'csv');
+      
+      if (result.success) {
+        Alert.alert('Success', 'Report downloaded successfully!');
+      } else {
+        Alert.alert('Error', result.message || 'Failed to download report');
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to download report');
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
+
+  const handleCloseSummary = () => {
+    setShowRouteSummary(false);
+    setSelectedRoute(null);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header Section */}
@@ -139,6 +199,58 @@ const ProfileScreen = ({ navigation }) => {
           <Text style={styles.logoutIcon}>🚪</Text>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
+
+        {/* Completed Routes Section (for collectors) */}
+        {user?.role === 'collector' && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionIcon}>📋</Text>
+              <Text style={styles.sectionTitle}>Completed Routes</Text>
+            </View>
+            {loadingRoutes ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={COLORS.primaryDarkTeal} />
+                <Text style={styles.loadingText}>Loading routes...</Text>
+              </View>
+            ) : completedRoutes.length > 0 ? (
+              <View style={styles.card}>
+                {completedRoutes.slice(0, 5).map((route, index) => (
+                  <View key={route._id}>
+                    <TouchableOpacity
+                      style={styles.routeItem}
+                      onPress={() => handleViewRouteSummary(route)}
+                    >
+                      <View style={styles.routeInfo}>
+                        <Text style={styles.routeName}>{route.routeName}</Text>
+                        <Text style={styles.routeDate}>
+                          {new Date(route.completedAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <View style={styles.routeStats}>
+                        <Text style={styles.routeStat}>
+                          {route.binsCollected || 0} bins
+                        </Text>
+                        <Text style={styles.routeChevron}>›</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {index < Math.min(completedRoutes.length - 1, 4) && (
+                      <View style={styles.divider} />
+                    )}
+                  </View>
+                ))}
+                {completedRoutes.length > 5 && (
+                  <Text style={styles.moreRoutesText}>
+                    + {completedRoutes.length - 5} more routes
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <View style={styles.card}>
+                <Text style={styles.noDataText}>No completed routes yet</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* App Settings Section */}
         <View style={styles.section}>
@@ -205,6 +317,15 @@ const ProfileScreen = ({ navigation }) => {
         userData={user}
         onSubmit={handleProfileUpdate}
         onClose={handleModalClose}
+      />
+
+      {/* Route Summary Modal */}
+      <PostRouteSummaryModal
+        visible={showRouteSummary}
+        onClose={handleCloseSummary}
+        onDownloadReport={handleDownloadReport}
+        routeData={selectedRoute}
+        downloadLoading={downloadLoading}
       />
 
       {/* Bottom Navigation */}
@@ -351,6 +472,69 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#F3F4F6',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+  },
+  loadingText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: FONTS.regular,
+  },
+  routeItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  routeInfo: {
+    flex: 1,
+  },
+  routeName: {
+    fontSize: 15,
+    fontWeight: FONTS.weight.semiBold,
+    color: '#111827',
+    marginBottom: 4,
+  },
+  routeDate: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontFamily: FONTS.regular,
+  },
+  routeStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  routeStat: {
+    fontSize: 13,
+    color: COLORS.primaryDarkTeal,
+    fontWeight: FONTS.weight.semiBold,
+    marginRight: 8,
+  },
+  routeChevron: {
+    fontSize: 24,
+    color: '#9CA3AF',
+  },
+  moreRoutesText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingTop: 12,
+    fontFamily: FONTS.regular,
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    paddingVertical: 20,
+    fontFamily: FONTS.regular,
   },
   bottomPadding: {
     height: 20,
