@@ -37,6 +37,8 @@ const ActiveRouteScreen = ({ route, navigation }) => {
   const [showPostRouteSummary, setShowPostRouteSummary] = useState(false);
   const [completedRouteData, setCompletedRouteData] = useState(null);
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [showSkipModal, setShowSkipModal] = useState(false);
+  const [skipReason, setSkipReason] = useState('');
 
   useEffect(() => {
     loadRouteData();
@@ -138,7 +140,9 @@ const ActiveRouteScreen = ({ route, navigation }) => {
       if (result.success) {
         setRouteData(result.data.route);
         setShowCollectionModal(false);
+        setShowSkipModal(false);
         setSelectedBin(null);
+        setSkipReason('');
         Alert.alert('Success', 'Bin skipped');
       } else {
         Alert.alert('Error', result.error || 'Failed to skip bin');
@@ -146,6 +150,18 @@ const ActiveRouteScreen = ({ route, navigation }) => {
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to skip bin');
     }
+  };
+
+  const handleShowSkipModal = () => {
+    setShowSkipModal(true);
+  };
+
+  const handleConfirmSkip = () => {
+    if (!skipReason || skipReason.trim() === '') {
+      Alert.alert('Error', 'Please provide a reason for skipping');
+      return;
+    }
+    handleSkipBin(skipReason.trim());
   };
 
   const handleCompleteRoute = () => {
@@ -458,26 +474,7 @@ const ActiveRouteScreen = ({ route, navigation }) => {
 
             <TouchableOpacity
               style={styles.modalSkipButton}
-              onPress={() => {
-                Alert.prompt(
-                  'Skip Bin',
-                  'Please provide a reason for skipping:',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Skip',
-                      onPress: (reason) => {
-                        if (reason && reason.trim()) {
-                          handleSkipBin(reason.trim());
-                        } else {
-                          Alert.alert('Error', 'Please provide a reason');
-                        }
-                      },
-                    },
-                  ],
-                  'plain-text'
-                );
-              }}
+              onPress={handleShowSkipModal}
             >
               <Text style={styles.modalSkipButtonText}>Skip Bin</Text>
             </TouchableOpacity>
@@ -487,6 +484,61 @@ const ActiveRouteScreen = ({ route, navigation }) => {
               onPress={() => {
                 setShowCollectionModal(false);
                 setSelectedBin(null);
+                setActualWeight('');
+              }}
+            >
+              <Text style={styles.modalCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Skip Bin Modal */}
+      <Modal
+        visible={showSkipModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSkipModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Skip Bin</Text>
+            
+            {selectedBin && (
+              <View style={styles.modalBinInfo}>
+                <Text style={styles.modalBinId}>{selectedBin.bin?.binId}</Text>
+                <Text style={styles.modalBinLocation}>{selectedBin.bin?.location}</Text>
+              </View>
+            )}
+
+            <View style={styles.weightInputContainer}>
+              <Text style={styles.weightInputLabel}>Reason for Skipping *</Text>
+              <TextInput
+                style={[styles.weightInput, styles.reasonInput]}
+                placeholder="e.g., Bin not accessible, damaged, etc."
+                multiline
+                numberOfLines={3}
+                value={skipReason}
+                onChangeText={setSkipReason}
+                autoFocus
+              />
+              <Text style={styles.weightInputHint}>
+                💡 Provide a clear reason why this bin cannot be collected
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalSkipConfirmButton}
+              onPress={handleConfirmSkip}
+            >
+              <Text style={styles.modalCollectButtonText}>Confirm Skip</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => {
+                setShowSkipModal(false);
+                setSkipReason('');
               }}
             >
               <Text style={styles.modalCancelButtonText}>Cancel</Text>
@@ -783,6 +835,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.primaryDarkTeal,
   },
+  reasonInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
   weightInputHint: {
     fontSize: 12,
     color: '#6B7280',
@@ -812,6 +868,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: FONTS.weight.bold,
+  },
+  modalSkipConfirmButton: {
+    backgroundColor: '#EF4444',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
   },
   modalCancelButton: {
     backgroundColor: '#F3F4F6',
