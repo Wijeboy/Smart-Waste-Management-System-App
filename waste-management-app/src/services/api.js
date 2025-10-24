@@ -1,6 +1,6 @@
 /**
  * API Service
- * Handles all API calls to the backend
+ * Handles all API communication with the backend
  */
 
 import { Platform } from 'react-native';
@@ -8,15 +8,16 @@ import { Platform } from 'react-native';
 // Determine API URL based on platform
 const getApiUrl = () => {
   if (Platform.OS === 'android') {
-    // Using actual IP address instead of 10.0.2.2 (more reliable)
-    return 'http://192.168.1.8:5000/api';
+    // Using 10.0.2.2 for Android emulator
+    return 'http://10.0.2.2:5000/api';
   } else if (Platform.OS === 'ios') {
     // iOS simulator can use localhost
     return 'http://localhost:5000/api';
   } else if (Platform.OS === 'web') {
+    // For web, always use the local server
     return 'http://localhost:5000/api';
   }
-  // For physical devices
+  // For physical devices - use the network IP
   return 'http://192.168.1.8:5000/api';
 };
 
@@ -29,323 +30,208 @@ console.log('Platform:', Platform.OS);
 console.log('API URL:', API_URL);
 console.log('===========================================');
 
+/**
+ * API Service for handling all backend communication
+ */
 class ApiService {
   constructor() {
-    this.token = null;
+    this.apiUrl = API_URL;
+    this.authToken = null;
   }
 
-  setToken(token) {
-    this.token = token;
+  /**
+   * Set the authentication token for API requests
+   * @param {string} token - JWT token
+   */
+  setAuthToken(token) {
+    this.authToken = token;
   }
 
-  getToken() {
-    return this.token;
+  /**
+   * Clear the authentication token
+   */
+  clearAuthToken() {
+    this.authToken = null;
   }
 
-  clearToken() {
-    this.token = null;
+  /**
+   * Get the current authentication token
+   * @returns {string|null} - Current JWT token
+   */
+  getAuthToken() {
+    return this.authToken;
   }
 
+  /**
+   * Make an API request
+   * @param {string} endpoint - API endpoint (without base URL)
+   * @param {Object} options - Request options
+   * @returns {Promise<any>} - Response data
+   */
   async request(endpoint, options = {}) {
+    const url = `${this.apiUrl}${endpoint}`;
+    
+    // Default headers
     const headers = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...options.headers
     };
 
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
+    // Add auth token if available
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`;
     }
 
-    const url = `${API_URL}${endpoint}`;
-    console.log('API Request:', url);
-    console.log('API Method:', options.method || 'GET');
-    console.log('API Headers:', headers);
+    // Prepare request options
+    const requestOptions = {
+      ...options,
+      headers
+    };
+
+    // Convert body to JSON string if it's an object
+    if (requestOptions.body && typeof requestOptions.body === 'object') {
+      requestOptions.body = JSON.stringify(requestOptions.body);
+    }
 
     try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
-
-      console.log('API Response Status:', response.status);
-      const data = await response.json();
-      console.log('API Response Data:', data);
-
-      if (!response.ok) {
-        throw new Error(data.message || 'An error occurred');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('API Request Error:', error);
-      console.error('Error message:', error.message);
+      const response = await fetch(url, requestOptions);
       
-      // Handle network errors specifically
-      if (error.message === 'Network request failed' || error.message === 'Failed to fetch') {
-        throw new Error('Cannot connect to server. Make sure the backend is running and accessible.');
+      // Handle different response types
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        
+        // Check if response is successful
+        if (!response.ok) {
+          const error = new Error(data.message || 'API request failed');
+          error.status = response.status;
+          error.data = data;
+          throw error;
+        }
+        
+        return data;
+      } else {
+        // For non-JSON responses
+        const text = await response.text();
+        
+        if (!response.ok) {
+          const error = new Error(text || 'API request failed');
+          error.status = response.status;
+          throw error;
+        }
+        
+        return text;
       }
+    } catch (error) {
+      console.error(`API Error (${endpoint}):`, error);
       throw error;
     }
   }
 
   // Auth endpoints
-  async register(userData) {
-    return this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-  }
-
   async login(credentials) {
     return this.request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify(credentials),
+      body: credentials
     });
   }
 
-  async adminLogin(credentials) {
-    return this.request('/auth/admin-login', {
+  async register(userData) {
+    return this.request('/auth/register', {
       method: 'POST',
-      body: JSON.stringify(credentials),
+      body: userData
     });
   }
 
-  async getProfile() {
-    return this.request('/auth/profile', {
-      method: 'GET',
+  async logout() {
+    this.clearAuthToken();
+    return true;
+  }
+
+  // User endpoints
+  async getCurrentUser() {
+    return this.request('/users/me', {
+      method: 'GET'
     });
   }
 
-  async updateProfile(userData) {
-    return this.request('/auth/profile', {
+  async updateUserProfile(userId, profileData) {
+    return this.request(`/users/${userId}`, {
       method: 'PUT',
-      body: JSON.stringify(userData),
-    });
-  }
-
-  async checkHealth() {
-    return this.request('/health', {
-      method: 'GET',
-    });
-  }
-
-  // ========================================
-  // Auth Account Management
-  // ========================================
-
-  async changePassword(oldPassword, newPassword, confirmPassword) {
-    return this.request('/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify({ oldPassword, newPassword, confirmPassword }),
-    });
-  }
-
-  async updateAccountSettings(data) {
-    return this.request('/auth/account-settings', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async deactivateAccount() {
-    return this.request('/auth/deactivate', {
-      method: 'PUT',
+      body: profileData
     });
   }
 
   // Bin endpoints
   async getBins(filters = {}) {
     const queryParams = new URLSearchParams(filters).toString();
-    return this.request(`/bins${queryParams ? `?${queryParams}` : ''}`, {
-      method: 'GET',
+    return this.request(`/bins?${queryParams}`, {
+      method: 'GET'
     });
   }
 
-  async getBinById(id) {
-    return this.request(`/bins/${id}`, {
-      method: 'GET',
+  async getBinById(binId) {
+    return this.request(`/bins/${binId}`, {
+      method: 'GET'
     });
   }
 
   async createBin(binData) {
     return this.request('/bins', {
       method: 'POST',
-      body: JSON.stringify(binData),
+      body: binData
     });
   }
 
-  async updateBin(id, updates) {
-    return this.request(`/bins/${id}`, {
+  async updateBin(binId, binData) {
+    return this.request(`/bins/${binId}`, {
       method: 'PUT',
-      body: JSON.stringify(updates),
+      body: binData
     });
   }
 
-  async deleteBin(id) {
-    return this.request(`/bins/${id}`, {
-      method: 'DELETE',
+  async deleteBin(binId) {
+    return this.request(`/bins/${binId}`, {
+      method: 'DELETE'
     });
   }
 
-  async updateBinStatus(id, status) {
-    return this.request(`/bins/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    });
-  }
-
-  async updateBinFillLevel(id, fillLevel, weight) {
-    return this.request(`/bins/${id}/fillLevel`, {
-      method: 'PATCH',
-      body: JSON.stringify({ fillLevel, weight }),
-    });
-  }
-
-  async getBinsByZone(zone) {
-    return this.request(`/bins/zone/${zone}`, {
-      method: 'GET',
-    });
-  }
-
-  async getBinsByType(type) {
-    return this.request(`/bins/type/${type}`, {
-      method: 'GET',
-    });
-  }
-
-  async getBinsByStatus(status) {
-    return this.request(`/bins/status/${status}`, {
-      method: 'GET',
-    });
-  }
-
-  async getBinStats() {
-    return this.request('/bins/stats', {
-      method: 'GET',
-    });
-  }
-
-  // ========================================
-  // Admin User Management
-  // ========================================
-
-  async getAllUsers(filters = {}) {
+  // Route endpoints
+  async getRoutes(filters = {}) {
     const queryParams = new URLSearchParams(filters).toString();
-    return this.request(`/admin/users${queryParams ? `?${queryParams}` : ''}`, {
-      method: 'GET',
+    return this.request(`/routes?${queryParams}`, {
+      method: 'GET'
     });
   }
 
-  async getUserById(id) {
-    return this.request(`/admin/users/${id}`, {
-      method: 'GET',
+  async getRouteById(routeId) {
+    return this.request(`/routes/${routeId}`, {
+      method: 'GET'
     });
   }
-
-  async updateUserRole(id, role) {
-    return this.request(`/admin/users/${id}/role`, {
-      method: 'PUT',
-      body: JSON.stringify({ role }),
-    });
-  }
-
-  async suspendUser(id) {
-    return this.request(`/admin/users/${id}/suspend`, {
-      method: 'PUT',
-    });
-  }
-
-  async deleteUser(id) {
-    return this.request(`/admin/users/${id}`, {
-      method: 'DELETE',
-    });
-  }
-
-  // ========================================
-  // Admin Route Management
-  // ========================================
 
   async createRoute(routeData) {
-    return this.request('/admin/routes', {
+    return this.request('/routes', {
       method: 'POST',
-      body: JSON.stringify(routeData),
+      body: routeData
     });
   }
 
-  async getAllRoutes(filters = {}) {
-    const queryParams = new URLSearchParams(filters).toString();
-    return this.request(`/admin/routes${queryParams ? `?${queryParams}` : ''}`, {
-      method: 'GET',
-    });
-  }
-
-  async getRouteById(id) {
-    return this.request(`/admin/routes/${id}`, {
-      method: 'GET',
-    });
-  }
-
-  async updateRoute(id, updates) {
-    return this.request(`/admin/routes/${id}`, {
+  async updateRoute(routeId, routeData) {
+    return this.request(`/routes/${routeId}`, {
       method: 'PUT',
-      body: JSON.stringify(updates),
+      body: routeData
     });
   }
 
-  async deleteRoute(id) {
-    return this.request(`/admin/routes/${id}`, {
-      method: 'DELETE',
-    });
-  }
-
-  async assignCollector(routeId, collectorId) {
-    return this.request(`/admin/routes/${routeId}/assign`, {
-      method: 'PUT',
-      body: JSON.stringify({ collectorId }),
-    });
-  }
-
-  async getRouteStats() {
-    return this.request('/admin/routes/stats', {
-      method: 'GET',
-    });
-  }
-
-  // ========================================
-  // Collector Route Management
-  // ========================================
-
-  async getMyRoutes(filters = {}) {
-    const queryParams = new URLSearchParams(filters).toString();
-    return this.request(`/routes/my-routes${queryParams ? `?${queryParams}` : ''}`, {
-      method: 'GET',
-    });
-  }
-
-  async startRoute(routeId) {
-    return this.request(`/routes/${routeId}/start`, {
-      method: 'PUT',
-    });
-  }
-
-  async collectBin(routeId, binId) {
-    return this.request(`/routes/${routeId}/bins/${binId}/collect`, {
-      method: 'PUT',
-    });
-  }
-
-  async skipBin(routeId, binId, reason) {
-    return this.request(`/routes/${routeId}/bins/${binId}/skip`, {
-      method: 'PUT',
-      body: JSON.stringify({ reason }),
-    });
-  }
-
-  async completeRoute(routeId) {
-    return this.request(`/routes/${routeId}/complete`, {
-      method: 'PUT',
+  async deleteRoute(routeId) {
+    return this.request(`/routes/${routeId}`, {
+      method: 'DELETE'
     });
   }
 }
 
-export default new ApiService();
+// Create and export a singleton instance
+const apiService = new ApiService();
+export default apiService;

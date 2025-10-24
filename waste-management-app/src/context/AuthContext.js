@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
-        apiService.setToken(token);
+        apiService.setAuthToken(token);
         const response = await apiService.getProfile();
         setUser(response.data.user);
       }
@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.setItem('authToken', token);
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       
-      apiService.setToken(token);
+      apiService.setAuthToken(token);
       setUser(userData);
       
       return { success: true };
@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('user');
-      apiService.clearToken();
+      apiService.clearAuthToken();
       setUser(null);
     } catch (err) {
       console.error('Logout error:', err);
@@ -133,7 +133,7 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.setItem('authToken', token);
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       
-      apiService.setToken(token);
+      apiService.setAuthToken(token);
       setUser(userData);
       
       return { success: true };

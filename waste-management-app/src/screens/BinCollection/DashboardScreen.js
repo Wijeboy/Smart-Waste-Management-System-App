@@ -367,16 +367,46 @@ const DashboardScreen = ({ navigation }) => {
         </View>
 
         {/* ANALYTICS SECTION */}
-        <View style={styles.analyticsSection}>
+        <View style={styles.analyticsSection} testID="analytics-section">
           <Text style={styles.sectionTitle}>Data & Analytics</Text>
           <TouchableOpacity 
             style={styles.analyticsButton}
             onPress={() => navigation?.navigate('AnalyticsDashboard')}
+            testID="analytics-card"
           >
             <Text style={styles.analyticsIcon}>📊</Text>
             <View style={styles.analyticsTextContainer}>
               <Text style={styles.analyticsTitle}>View Analytics Dashboard</Text>
               <Text style={styles.analyticsSubtitle}>Reports, KPIs, and insights</Text>
+            </View>
+            <Text style={styles.analyticsArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* PAYMENT SECTION */}
+        <View style={styles.analyticsSection} testID="payment-section">
+          <TouchableOpacity 
+            style={[styles.analyticsButton, { borderLeftColor: COLORS.iconGreen }]}
+            onPress={() => navigation?.navigate('PaymentPage')}
+            testID="payment-card"
+          >
+            <Text style={styles.analyticsIcon}>💳</Text>
+            <View style={styles.analyticsTextContainer}>
+              <Text style={styles.analyticsTitle}>Make Payment</Text>
+              <Text style={styles.analyticsSubtitle}>Pay invoices and manage billing</Text>
+            </View>
+            <Text style={styles.analyticsArrow}>→</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.analyticsButton, { marginTop: 12, borderLeftColor: COLORS.iconBlue }]}
+            onPress={() => navigation?.navigate('CreditPoints')}
+            testID="credits-card"
+          >
+            <Text style={styles.analyticsIcon}>🎯</Text>
+            <View style={styles.analyticsTextContainer}>
+              <Text style={styles.analyticsTitle}>Credit Points</Text>
+              <Text style={styles.analyticsSubtitle}>View and claim your reward points</Text>
             </View>
             <Text style={styles.analyticsArrow}>→</Text>
           </TouchableOpacity>

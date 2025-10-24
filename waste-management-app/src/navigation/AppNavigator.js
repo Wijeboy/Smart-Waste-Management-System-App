@@ -18,6 +18,12 @@ import AnalyticsDashboard from '../screens/Analytics/AnalyticsDashboard';
 import AnalyticsReportsScreen from '../screens/Analytics/ReportsScreen';
 import KPIsScreen from '../screens/Analytics/KPIsScreen';
 
+// Import Payment screens
+import PaymentPageScreen from '../screens/Payments/PaymentPageScreen';
+import CreditPointsScreen from '../screens/Payments/CreditPointsScreen';
+import ApplyCreditScreen from '../screens/Payments/ApplyCreditScreen';
+import AddPaymentMethodScreen from '../screens/Payments/AddPaymentMethodScreen';
+
 // Import other analytics-related screens
 import DataCollectionScreen from '../screens/DataCollectionScreen';
 import DataProcessingScreen from '../screens/DataProcessingScreen';
@@ -177,6 +183,42 @@ const AppNavigator = () => {
           headerShown: false,
         }}
       />
+
+      {/* Payment Screens */}
+      <Stack.Screen
+        name="PaymentPage"
+        component={PaymentPageScreen}
+        options={{
+          title: 'Payment',
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen
+        name="CreditPoints"
+        component={CreditPointsScreen}
+        options={{
+          title: 'Credit Points',
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen
+        name="ApplyCredit"
+        component={ApplyCreditScreen}
+        options={{
+          title: 'Apply Credit Points',
+          headerShown: true,
+        }}
+      />
+      <Stack.Group screenOptions={{ presentation: 'modal' }}>
+        <Stack.Screen
+          name="AddPaymentMethod"
+          component={AddPaymentMethodScreen}
+          options={{
+            title: 'Add Payment Method',
+            headerShown: false,
+          }}
+        />
+      </Stack.Group>
 
       {/* Admin Screens */}
       <Stack.Screen
