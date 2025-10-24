@@ -533,6 +533,51 @@ exports.getResidentBins = async (req, res) => {
           };
         }
 
+        // Find all skipped incidents from COMPLETED routes only
+        // These should be cleared when the bin is next collected
+        const skippedRoutes = await Route.find({
+          'bins.bin': bin._id,
+          'bins.status': 'skipped',
+          status: 'completed'
+        })
+        .populate('assignedTo', 'firstName lastName')
+        .select('routeName completedAt assignedTo bins')
+        .sort({ completedAt: -1 }); // Newest first
+
+        // Check if bin has been collected AFTER being skipped
+        const lastCollectionDate = bin.latestCollection?.collectedAt 
+          ? new Date(bin.latestCollection.collectedAt) 
+          : null;
+
+        // Filter out skips that occurred before the last successful collection
+        const skippedIncidents = [];
+        if (skippedRoutes.length > 0) {
+          skippedRoutes.forEach(route => {
+            const binInRoute = route.bins.find(
+              b => b.bin.toString() === bin._id.toString() && b.status === 'skipped'
+            );
+
+            if (binInRoute) {
+              const skipDate = route.completedAt ? new Date(route.completedAt) : new Date();
+              
+              // Only include skips that happened AFTER the last collection (or all skips if never collected)
+              if (!lastCollectionDate || skipDate > lastCollectionDate) {
+                skippedIncidents.push({
+                  routeName: route.routeName,
+                  skippedAt: route.completedAt,
+                  reason: binInRoute.notes || 'No reason provided',
+                  collectorName: route.assignedTo 
+                    ? `${route.assignedTo.firstName} ${route.assignedTo.lastName}`
+                    : 'Unknown',
+                  routeId: route._id
+                });
+              }
+            }
+          });
+        }
+
+        binObj.skippedIncidents = skippedIncidents;
+
         return binObj;
       })
     );

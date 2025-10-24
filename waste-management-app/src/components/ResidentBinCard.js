@@ -108,6 +108,41 @@ const ResidentBinCard = ({ bin, onPress }) => {
         </View>
       )}
 
+      {/* Skipped Incidents - Show all skips since last collection */}
+      {bin.skippedIncidents && bin.skippedIncidents.length > 0 && (
+        <View style={styles.skippedSection}>
+          <View style={styles.skippedBadge}>
+            <Text style={styles.skippedBadgeText}>
+              ⚠️ BIN SKIPPED DURING COLLECTION
+            </Text>
+          </View>
+          {bin.skippedIncidents.map((incident, index) => (
+            <View key={`${incident.routeId}_${index}`} style={styles.skippedIncident}>
+              <Text style={styles.skippedReason}>
+                📝 Reason: {incident.reason}
+              </Text>
+              <Text style={styles.skippedText}>
+                🗓️ {formatDate(incident.skippedAt)}
+              </Text>
+              <Text style={styles.skippedText}>
+                👤 Collector: {incident.collectorName}
+              </Text>
+              <Text style={styles.skippedText}>
+                📍 Route: {incident.routeName}
+              </Text>
+              {index < bin.skippedIncidents.length - 1 && (
+                <View style={styles.skippedDivider} />
+              )}
+            </View>
+          ))}
+          <View style={styles.skippedNote}>
+            <Text style={styles.skippedNoteText}>
+              💡 This information will be cleared when your bin is successfully collected.
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Latest Collection */}
       {bin.latestCollection && bin.latestCollection.collectedAt && (
         <View style={styles.collectionSection}>
@@ -261,6 +296,59 @@ const styles = StyleSheet.create({
     fontSize: FONTS.size.small,
     color: '#1565C0',
     marginBottom: 2,
+  },
+  skippedSection: {
+    backgroundColor: '#FFF3E0',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+  },
+  skippedBadge: {
+    backgroundColor: '#FF9800',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  skippedBadgeText: {
+    color: '#FFFFFF',
+    fontSize: FONTS.size.caption,
+    fontWeight: FONTS.weight.bold,
+  },
+  skippedIncident: {
+    marginBottom: 8,
+  },
+  skippedReason: {
+    fontSize: FONTS.size.small,
+    color: '#E65100',
+    fontWeight: FONTS.weight.semiBold,
+    marginBottom: 4,
+  },
+  skippedText: {
+    fontSize: FONTS.size.small,
+    color: '#EF6C00',
+    marginBottom: 2,
+  },
+  skippedDivider: {
+    height: 1,
+    backgroundColor: '#FFB74D',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  skippedNote: {
+    backgroundColor: '#FFE0B2',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  skippedNoteText: {
+    fontSize: FONTS.size.caption,
+    color: '#E65100',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   collectionSection: {
     borderTopWidth: 1,
