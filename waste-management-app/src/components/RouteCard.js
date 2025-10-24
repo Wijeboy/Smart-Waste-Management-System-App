@@ -28,7 +28,14 @@ const getStatusBadgeColor = (status) => {
 /**
  * RouteCard Component
  */
-const RouteCard = ({ route, onPress, showProgress = true }) => {
+const RouteCard = ({ 
+  route, 
+  onPress, 
+  showProgress = true, 
+  onEdit, 
+  onDelete, 
+  showActions = false 
+}) => {
   const statusColor = getStatusBadgeColor(route.status);
   const progress = route.progress || 0;
   const totalBins = route.totalBins || route.bins?.length || 0;
@@ -130,6 +137,38 @@ const RouteCard = ({ route, onPress, showProgress = true }) => {
           </Text>
         )}
       </View>
+
+      {/* Action Buttons (for all routes) */}
+      {showActions && (
+        <View style={styles.actionButtons}>
+          {route.status === 'scheduled' && onEdit && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                onEdit(route);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.actionButtonIcon}>✏️</Text>
+              <Text style={styles.actionButtonText}>Edit</Text>
+            </TouchableOpacity>
+          )}
+          {onDelete && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.deleteButton]}
+              onPress={(e) => {
+                e.stopPropagation();
+                onDelete(route);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.actionButtonIcon}>🗑️</Text>
+              <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -244,6 +283,39 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     color: '#9CA3AF',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    gap: 8,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: COLORS.primaryDarkTeal,
+    borderRadius: 8,
+  },
+  actionButtonIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: FONTS.weight.semiBold,
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
   },
 });
 

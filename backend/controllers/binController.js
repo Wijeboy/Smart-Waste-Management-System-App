@@ -488,10 +488,59 @@ exports.getResidentBins = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate('latestCollection.collectedBy', 'firstName lastName');
 
+    // For each bin, check if it's scheduled in any active/in-progress route
+    const Route = require('../models/Route');
+    const binsWithSchedule = await Promise.all(
+      bins.map(async (bin) => {
+        const binObj = bin.toObject();
+        
+        // Find if this bin is in any active or in-progress route
+        const activeRoute = await Route.findOne({
+          'bins.bin': bin._id,
+          status: { $in: ['scheduled', 'in-progress'] }
+        })
+        .populate('assignedTo', 'firstName lastName')
+        .select('routeName scheduledDate assignedTo status bins');
+
+        if (activeRoute) {
+          // Find the specific bin in the route to get its status
+          const binInRoute = activeRoute.bins.find(
+            b => b.bin.toString() === bin._id.toString()
+          );
+
+          // If bin is scheduled but not yet collected, show 0% fill level
+          const isScheduledNotCollected = binInRoute && binInRoute.status === 'pending';
+          
+          binObj.scheduleInfo = {
+            isScheduled: true,
+            routeName: activeRoute.routeName,
+            scheduledDate: activeRoute.scheduledDate,
+            routeStatus: activeRoute.status,
+            collectorName: activeRoute.assignedTo 
+              ? `${activeRoute.assignedTo.firstName} ${activeRoute.assignedTo.lastName}`
+              : 'Not assigned',
+            binStatus: binInRoute ? binInRoute.status : 'pending'
+          };
+
+          // Override fill level to 0 if scheduled for collection (not yet collected)
+          if (isScheduledNotCollected) {
+            binObj.fillLevel = 0;
+            console.log(`📦 Bin ${binObj.binId} is scheduled - displaying 0% fill level`);
+          }
+        } else {
+          binObj.scheduleInfo = {
+            isScheduled: false
+          };
+        }
+
+        return binObj;
+      })
+    );
+
     res.status(200).json({
       success: true,
-      count: bins.length,
-      data: bins
+      count: binsWithSchedule.length,
+      data: binsWithSchedule
     });
   } catch (error) {
     res.status(500).json({

@@ -10,18 +10,18 @@ import { COLORS, FONTS } from '../constants/theme';
 const ResidentBinCard = ({ bin, onPress }) => {
   const getFillLevelColor = (level) => {
     if (level >= 80) return COLORS.alertRed;
-    if (level >= 50) return COLORS.warningYellow;
-    return COLORS.successGreen;
+    if (level >= 50) return COLORS.iconOrange;
+    return COLORS.accentGreen;
   };
 
   const getStatusColor = (status) => {
     switch (status) {
       case 'active':
-        return COLORS.successGreen;
+        return COLORS.accentGreen;
       case 'full':
         return COLORS.alertRed;
       case 'maintenance':
-        return COLORS.warningYellow;
+        return COLORS.iconOrange;
       default:
         return COLORS.iconGray;
     }
@@ -32,6 +32,16 @@ const ResidentBinCard = ({ bin, onPress }) => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  // Ensure fill level is a valid number
+  const fillLevel = bin.fillLevel !== undefined && bin.fillLevel !== null ? Number(bin.fillLevel) : 0;
+  console.log(`Bin ${bin.binId} fill level:`, fillLevel, typeof fillLevel);
+  console.log(`Bin ${bin.binId} raw data:`, JSON.stringify({
+    fillLevel: bin.fillLevel,
+    capacity: bin.capacity,
+    weight: bin.weight,
+    latestCollection: bin.latestCollection
+  }));
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
@@ -56,22 +66,47 @@ const ResidentBinCard = ({ bin, onPress }) => {
       <View style={styles.fillLevelSection}>
         <View style={styles.fillLevelHeader}>
           <Text style={styles.fillLevelLabel}>Fill Level</Text>
-          <Text style={[styles.fillLevelValue, { color: getFillLevelColor(bin.fillLevel) }]}>
-            {bin.fillLevel}%
+          <Text style={[styles.fillLevelValue, { color: getFillLevelColor(fillLevel) }]}>
+            {fillLevel}%
           </Text>
         </View>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${bin.fillLevel}%`,
-                backgroundColor: getFillLevelColor(bin.fillLevel),
-              },
-            ]}
-          />
+        <View style={styles.progressBarContainer}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${Math.max(fillLevel, 0)}%`,
+                  backgroundColor: getFillLevelColor(fillLevel),
+                },
+              ]}
+            />
+          </View>
         </View>
       </View>
+
+      {/* Scheduled Collection Info */}
+      {bin.scheduleInfo && bin.scheduleInfo.isScheduled && bin.scheduleInfo.binStatus === 'pending' && (
+        <View style={styles.scheduledSection}>
+          <View style={styles.scheduledBadge}>
+            <Text style={styles.scheduledBadgeText}>📅 SCHEDULED FOR COLLECTION</Text>
+          </View>
+          <View style={styles.scheduledDetails}>
+            <Text style={styles.scheduledText}>
+              🚛 Collector: {bin.scheduleInfo.collectorName}
+            </Text>
+            <Text style={styles.scheduledText}>
+              📅 Date: {formatDate(bin.scheduleInfo.scheduledDate)}
+            </Text>
+            <Text style={styles.scheduledText}>
+              📍 Route: {bin.scheduleInfo.routeName}
+            </Text>
+            <Text style={styles.scheduledText}>
+              🔔 Status: {bin.scheduleInfo.routeStatus === 'in-progress' ? 'Collection in Progress' : 'Scheduled'}
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Latest Collection */}
       {bin.latestCollection && bin.latestCollection.collectedAt && (
@@ -182,15 +217,50 @@ const styles = StyleSheet.create({
     fontSize: FONTS.size.body,
     fontWeight: FONTS.weight.bold,
   },
+  progressBarContainer: {
+    width: '100%',
+    marginBottom: 4,
+  },
   progressBar: {
-    height: 8,
-    backgroundColor: COLORS.progressBarBg,
-    borderRadius: 4,
+    height: 10,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 5,
     overflow: 'hidden',
+    width: '100%',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 5,
+    minWidth: 0,
+  },
+  scheduledSection: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196F3',
+  },
+  scheduledBadge: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  scheduledBadgeText: {
+    color: '#FFFFFF',
+    fontSize: FONTS.size.caption,
+    fontWeight: FONTS.weight.bold,
+  },
+  scheduledDetails: {
+    gap: 4,
+  },
+  scheduledText: {
+    fontSize: FONTS.size.small,
+    color: '#1565C0',
+    marginBottom: 2,
   },
   collectionSection: {
     borderTopWidth: 1,

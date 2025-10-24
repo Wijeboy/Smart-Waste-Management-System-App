@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -40,9 +41,17 @@ const ActiveRouteScreen = ({ route, navigation }) => {
   const [showSkipModal, setShowSkipModal] = useState(false);
   const [skipReason, setSkipReason] = useState('');
 
-  useEffect(() => {
-    loadRouteData();
-  }, [routeId]);
+  // Reload route data when screen comes back into focus
+  // Don't use useEffect - only useFocusEffect to avoid double loading
+  useFocusEffect(
+    React.useCallback(() => {
+      loadRouteData();
+      return () => {
+        // Cleanup function when screen loses focus
+        console.log('Screen lost focus');
+      };
+    }, [routeId])
+  );
 
   const loadRouteData = async () => {
     try {
@@ -60,13 +69,52 @@ const ActiveRouteScreen = ({ route, navigation }) => {
         return;
       }
       
-      // If scheduled, show pre-route checklist
-      if (data.status === 'scheduled') {
-        setRouteData(data);
-        setShowPreRouteChecklist(true);
-      } else {
-        setRouteData(data);
-      }
+      // DEBUG: Log route details
+      console.log('=== ROUTE DATA ===');
+      console.log('Route ID:', data._id);
+      console.log('Route Status:', data.status);
+      console.log('Started At:', data.startedAt);
+      console.log('Checklist Completed:', data.preRouteChecklist?.completed);
+      
+      // Check if any bins have been collected
+      const collectedBinsCount = data.bins?.filter(b => b.status === 'collected').length || 0;
+      const skippedBinsCount = data.bins?.filter(b => b.status === 'skipped').length || 0;
+      const processedBinsCount = collectedBinsCount + skippedBinsCount;
+      
+      console.log('Total Bins:', data.bins?.length || 0);
+      console.log('Collected Bins:', collectedBinsCount);
+      console.log('Skipped Bins:', skippedBinsCount);
+      console.log('Processed Bins:', processedBinsCount);
+      console.log('Bins Status:', data.bins?.map(b => ({ binId: b.bin?.binId || b.bin, status: b.status })));
+      console.log('==================');
+      
+      setRouteData(data);
+      
+      // IMPORTANT: Never show checklist if:
+      // 1. Route has been started (has startedAt timestamp), OR
+      // 2. Route is in-progress, OR
+      // 3. Checklist already completed, OR
+      // 4. Any bins have been collected or skipped (route must have been started)
+      const routeAlreadyStarted = Boolean(data.startedAt);
+      const checklistAlreadyCompleted = Boolean(data.preRouteChecklist?.completed);
+      const isInProgress = data.status === 'in-progress';
+      const hasProcessedBins = processedBinsCount > 0;
+      
+      const shouldShowChecklist = 
+        data.status === 'scheduled' && 
+        !routeAlreadyStarted && 
+        !checklistAlreadyCompleted &&
+        !isInProgress &&
+        !hasProcessedBins; // ✅ NEW: Don't show if bins already processed
+      
+      console.log('Should show checklist?', shouldShowChecklist);
+      console.log('  - Status scheduled:', data.status === 'scheduled');
+      console.log('  - Not started:', !routeAlreadyStarted);
+      console.log('  - Checklist not completed:', !checklistAlreadyCompleted);
+      console.log('  - Not in progress:', !isInProgress);
+      console.log('  - No bins processed:', !hasProcessedBins);
+      
+      setShowPreRouteChecklist(shouldShowChecklist);
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to load route');
       navigation.goBack();
@@ -81,6 +129,20 @@ const ActiveRouteScreen = ({ route, navigation }) => {
    */
   const handleChecklistComplete = async (checklistData) => {
     try {
+      // Double-check route status before starting
+      if (routeData?.status === 'in-progress') {
+        setShowPreRouteChecklist(false);
+        Alert.alert('Info', 'Route is already in progress. You can continue collecting bins.');
+        return;
+      }
+      
+      if (routeData?.status !== 'scheduled') {
+        setShowPreRouteChecklist(false);
+        Alert.alert('Error', 'Route cannot be started at this time. Please refresh and try again.');
+        loadRouteData(); // Reload to get current status
+        return;
+      }
+      
       setChecklistLoading(true);
       const result = await startRoute(routeId, checklistData);
       

@@ -260,14 +260,8 @@ exports.deleteRoute = async (req, res) => {
       });
     }
     
-    // Only allow deletion if scheduled or cancelled
-    if (!['scheduled', 'cancelled'].includes(route.status)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Can only delete scheduled or cancelled routes'
-      });
-    }
-    
+    // Allow deletion of routes in any status
+    // Admin has full control to delete any route
     await route.deleteOne();
     
     res.status(200).json({
@@ -550,10 +544,24 @@ exports.collectBin = async (req, res) => {
     
     await route.save();
     
+    // Calculate fill level based on actual weight collected
+    // Formula: (weight / capacity) * 100
+    let calculatedFillLevel = 0;
+    if (actualWeight !== undefined && actualWeight !== null) {
+      calculatedFillLevel = Math.round((actualWeight / binDetails.capacity) * 100);
+      // Ensure fill level is between 0 and 100
+      calculatedFillLevel = Math.max(0, Math.min(100, calculatedFillLevel));
+      console.log(`📊 Calculated fill level: ${actualWeight}kg / ${binDetails.capacity}kg = ${calculatedFillLevel}%`);
+    } else {
+      console.log(`⚠️ No weight provided, fill level will be set to 0%`);
+    }
+    
+    console.log(`✅ Bin collected - updating fill level to ${calculatedFillLevel}% (was ${binDetails.fillLevel}%)`);
+    
     // Prepare collection data for updating bin
     const collectionUpdate = {
-      fillLevel: 0,
-      weight: actualWeight || 0,
+      fillLevel: calculatedFillLevel, // Calculate based on actual weight collected
+      weight: actualWeight || 0, // Store the weight that was collected
       lastCollection: Date.now(),
       status: 'active'
     };

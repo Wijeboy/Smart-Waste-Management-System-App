@@ -63,52 +63,31 @@ const ResidentDashboard = ({ navigation }) => {
   };
 
   const handleBinPress = (bin) => {
-    // Navigate to bin details or schedule view
+    // Show bin details with close button only
     Alert.alert(
       bin.binId,
-      `Location: ${bin.location}\nZone: ${bin.zone}\nType: ${bin.binType}\nFill Level: ${bin.fillLevel}%`,
+      `Location: ${bin.location}\nZone: ${bin.zone}\nType: ${bin.binType}\nCapacity: ${bin.capacity}kg\nFill Level: ${bin.fillLevel || 0}%\nStatus: ${bin.status}`,
       [
-        {
-          text: 'View Schedule',
-          onPress: () => viewSchedule(bin._id),
-        },
-        { text: 'Close' },
+        { text: 'Close', style: 'cancel' },
       ]
     );
-  };
-
-  const viewSchedule = async (binId) => {
-    try {
-      const response = await apiService.getResidentBinSchedule(binId);
-      const collections = response.upcomingCollections || [];
-      
-      if (collections.length === 0) {
-        Alert.alert('No Schedule', 'No upcoming collections scheduled for this bin.');
-      } else {
-        const scheduleText = collections
-          .map((route) => {
-            const date = new Date(route.scheduledDate).toLocaleDateString();
-            const collector = route.assignedTo 
-              ? `${route.assignedTo.firstName} ${route.assignedTo.lastName}`
-              : 'Unassigned';
-            return `${date} at ${route.scheduledTime}\nCollector: ${collector}`;
-          })
-          .join('\n\n');
-        
-        Alert.alert('Collection Schedule', scheduleText);
-      }
-    } catch (error) {
-      console.error('Error fetching schedule:', error);
-      Alert.alert('Error', 'Failed to load collection schedule');
-    }
   };
 
   const calculateStats = () => {
     const total = bins.length;
     const active = bins.filter((b) => b.status === 'active').length;
-    const needsCollection = bins.filter((b) => b.fillLevel >= 70).length;
+    
+    // Count bins that need collection:
+    // 1. Fill level >= 70% OR
+    // 2. Scheduled for collection (has scheduleInfo and is pending)
+    const needsCollection = bins.filter((b) => {
+      const hasHighFillLevel = (b.fillLevel || 0) >= 70;
+      const isScheduled = b.scheduleInfo && b.scheduleInfo.isScheduled && b.scheduleInfo.binStatus === 'pending';
+      return hasHighFillLevel || isScheduled;
+    }).length;
+    
     const avgFillLevel = total > 0 
-      ? Math.round(bins.reduce((sum, b) => sum + b.fillLevel, 0) / total)
+      ? Math.round(bins.reduce((sum, b) => sum + (b.fillLevel || 0), 0) / total)
       : 0;
 
     return { total, active, needsCollection, avgFillLevel };

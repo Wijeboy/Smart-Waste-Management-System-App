@@ -394,6 +394,22 @@ const RouteDetailScreen = ({ route, navigation }) => {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Delete option for all other route statuses */}
+        {routeData.status !== 'scheduled' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Actions</Text>
+            
+            <TouchableOpacity
+              style={styles.dangerButton}
+              onPress={handleDeleteRoute}
+            >
+              <Text style={styles.dangerButtonIcon}>🗑️</Text>
+              <Text style={styles.dangerButtonText}>Delete Route</Text>
+              <Text style={styles.dangerButtonArrow}>→</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {/* Collector Assignment Modal */}

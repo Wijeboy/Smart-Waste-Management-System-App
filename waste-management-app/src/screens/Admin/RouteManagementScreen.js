@@ -189,6 +189,9 @@ const RouteManagementScreen = ({ navigation }) => {
           <RouteCard
             route={item}
             onPress={() => handleRoutePress(item)}
+            showActions={true}
+            onEdit={handleEditRoute}
+            onDelete={handleDeleteRoute}
           />
         )}
         ListHeaderComponent={renderHeader}
