@@ -1,0 +1,470 @@
+/**
+ * Analytics Service Tests
+ * Tests for analytics API service methods
+ */
+
+import apiService from '../../services/api';
+
+// Mock fetch globally
+global.fetch = jest.fn();
+
+describe('Analytics API Service', () => {
+  
+  beforeEach(() => {
+    // Clear mock calls before each test
+    fetch.mockClear();
+  });
+
+  describe('getAnalytics', () => {
+    it('should fetch comprehensive analytics data', async () => {
+      const mockData = {
+        success: true,
+        data: {
+          userStats: { total: 10 },
+          routeStats: { total: 20 },
+          binStats: { total: 30 }
+        }
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockData
+      });
+
+      const result = await apiService.getAnalytics();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/admin/analytics'),
+        expect.any(Object)
+      );
+      expect(result).toEqual(mockData);
+    });
+
+    it('should handle API errors', async () => {
+      fetch.mockRejectedValueOnce(new Error('Network error'));
+
+      await expect(apiService.getAnalytics()).rejects.toThrow();
+    });
+  });
+
+  describe('getKPIs', () => {
+    it('should fetch KPI data', async () => {
+      const mockKPIs = {
+        success: true,
+        data: {
+          totalUsers: 2,
+          totalRoutes: 5,
+          totalBins: 6,
+          totalCollections: 9,
+          totalWasteCollected: 303,
+          collectionEfficiency: 100,
+          recyclingRate: 26,
+          customerSatisfaction: 1
+        }
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockKPIs
+      });
+
+      const result = await apiService.getKPIs();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/admin/analytics/kpis'),
+        expect.any(Object)
+      );
+      expect(result.data).toHaveProperty('totalUsers');
+      expect(result.data).toHaveProperty('totalRoutes');
+      expect(result.data).toHaveProperty('totalBins');
+    });
+
+    it('should return valid numeric KPIs', async () => {
+      const mockKPIs = {
+        success: true,
+        data: {
+          totalUsers: 2,
+          totalRoutes: 5,
+          totalBins: 6
+        }
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockKPIs
+      });
+
+      const result = await apiService.getKPIs();
+
+      expect(typeof result.data.totalUsers).toBe('number');
+      expect(typeof result.data.totalRoutes).toBe('number');
+      expect(typeof result.data.totalBins).toBe('number');
+    });
+  });
+
+  describe('getCollectionTrends', () => {
+    it('should fetch trends with default period', async () => {
+      const mockTrends = {
+        success: true,
+        data: [
+          { week: 'Week 1', collections: 2, wasteCollected: 50 },
+          { week: 'Week 2', collections: 1, wasteCollected: 25 },
+          { week: 'Week 3', collections: 3, wasteCollected: 75 },
+          { week: 'Week 4', collections: 9, wasteCollected: 303 }
+        ]
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockTrends
+      });
+
+      const result = await apiService.getCollectionTrends();
+
+      expect(fetch).toHaveBeenCalled();
+      expect(Array.isArray(result.data)).toBe(true);
+    });
+
+    it('should accept period parameter', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: [] })
+      });
+
+      await apiService.getCollectionTrends('daily');
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('period=daily'),
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe('getWasteDistribution', () => {
+    it('should fetch waste distribution data', async () => {
+      const mockDistribution = {
+        success: true,
+        data: [
+          { type: 'Organic', weight: 81, percentage: 31, color: '#10B981' },
+          { type: 'Recyclable', weight: 50, percentage: 19, color: '#3B82F6' },
+          { type: 'General Waste', weight: 98, percentage: 37, color: '#6B7280' },
+          { type: 'Hazardous', weight: 36, percentage: 14, color: '#EF4444' }
+        ]
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockDistribution
+      });
+
+      const result = await apiService.getWasteDistribution();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/admin/analytics/waste-distribution'),
+        expect.any(Object)
+      );
+      expect(Array.isArray(result.data)).toBe(true);
+    });
+
+    it('should include all waste types', async () => {
+      const mockDistribution = {
+        success: true,
+        data: [
+          { type: 'Organic', weight: 81, percentage: 31, color: '#10B981' },
+          { type: 'Recyclable', weight: 50, percentage: 19, color: '#3B82F6' },
+          { type: 'General Waste', weight: 98, percentage: 37, color: '#6B7280' },
+          { type: 'Hazardous', weight: 36, percentage: 14, color: '#EF4444' }
+        ]
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockDistribution
+      });
+
+      const result = await apiService.getWasteDistribution();
+
+      const types = result.data.map(item => item.type);
+      expect(types).toContain('Organic');
+      expect(types).toContain('Recyclable');
+      expect(types).toContain('General Waste');
+      expect(types).toContain('Hazardous');
+    });
+
+    it('should include color codes', async () => {
+      const mockDistribution = {
+        success: true,
+        data: [
+          { type: 'Organic', weight: 81, percentage: 31, color: '#10B981' }
+        ]
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockDistribution
+      });
+
+      const result = await apiService.getWasteDistribution();
+
+      expect(result.data[0]).toHaveProperty('color');
+      expect(result.data[0].color).toMatch(/^#[0-9A-F]{6}$/i);
+    });
+  });
+
+  describe('getRoutePerformance', () => {
+    it('should fetch route performance data', async () => {
+      const mockPerformance = {
+        success: true,
+        data: [
+          {
+            routeName: 'Route 1',
+            collector: 'Pramod Pramod',
+            efficiency: 100,
+            satisfaction: 4,
+            completionTime: 1,
+            binsCollected: 2,
+            wasteCollected: 113
+          }
+        ]
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockPerformance
+      });
+
+      const result = await apiService.getRoutePerformance();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/admin/analytics/route-performance'),
+        expect.any(Object)
+      );
+      expect(Array.isArray(result.data)).toBe(true);
+    });
+
+    it('should include performance metrics', async () => {
+      const mockPerformance = {
+        success: true,
+        data: [
+          {
+            routeName: 'Route 1',
+            efficiency: 100,
+            satisfaction: 4,
+            completionTime: 1
+          }
+        ]
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockPerformance
+      });
+
+      const result = await apiService.getRoutePerformance();
+
+      expect(result.data[0]).toHaveProperty('efficiency');
+      expect(result.data[0]).toHaveProperty('satisfaction');
+      expect(result.data[0]).toHaveProperty('completionTime');
+    });
+  });
+
+  describe('getBinAnalytics', () => {
+    it('should fetch bin analytics data', async () => {
+      const mockBinAnalytics = {
+        success: true,
+        data: {
+          statusDistribution: [
+            { status: 'Active', count: 5, percentage: 83 },
+            { status: 'Full', count: 1, percentage: 17 }
+          ],
+          typeDistribution: [
+            { type: 'Organic', count: 2, percentage: 33 },
+            { type: 'Recyclable', count: 2, percentage: 33 },
+            { type: 'General Waste', count: 2, percentage: 33 }
+          ],
+          fillLevels: [
+            { level: 'Empty', count: 2, percentage: 33 },
+            { level: 'Low', count: 2, percentage: 33 },
+            { level: 'Medium', count: 2, percentage: 33 }
+          ],
+          summary: {
+            totalBins: 6,
+            averageFillLevel: 45,
+            capacityUtilization: 34,
+            criticalBins: 0,
+            fullBins: 1
+          }
+        }
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockBinAnalytics
+      });
+
+      const result = await apiService.getBinAnalytics();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/admin/analytics/bin-analytics'),
+        expect.any(Object)
+      );
+      expect(result.data).toHaveProperty('statusDistribution');
+      expect(result.data).toHaveProperty('typeDistribution');
+      expect(result.data).toHaveProperty('fillLevels');
+      expect(result.data).toHaveProperty('summary');
+    });
+  });
+
+  describe('getUserAnalytics', () => {
+    it('should fetch user analytics data', async () => {
+      const mockUserAnalytics = {
+        success: true,
+        data: {
+          roleDistribution: [
+            { role: 'Admin', count: 1, percentage: 50 },
+            { role: 'Collector', count: 1, percentage: 50 }
+          ],
+          activityStatus: [
+            { status: 'Active', count: 2, percentage: 100 },
+            { status: 'Inactive', count: 0, percentage: 0 }
+          ],
+          summary: {
+            totalUsers: 2,
+            activeUsers: 2,
+            totalCollectors: 1,
+            totalAdmins: 1
+          }
+        }
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockUserAnalytics
+      });
+
+      const result = await apiService.getUserAnalytics();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/admin/analytics/user-analytics'),
+        expect.any(Object)
+      );
+      expect(result.data).toHaveProperty('roleDistribution');
+      expect(result.data).toHaveProperty('activityStatus');
+      expect(result.data).toHaveProperty('summary');
+    });
+  });
+
+  describe('getZoneAnalytics', () => {
+    it('should fetch zone analytics data', async () => {
+      const mockZoneAnalytics = {
+        success: true,
+        data: [
+          {
+            zone: 'Zone A',
+            binCount: 3,
+            averageFillLevel: 60,
+            totalWeight: 150,
+            utilization: 75,
+            fullBins: 1
+          },
+          {
+            zone: 'Zone B',
+            binCount: 2,
+            averageFillLevel: 30,
+            totalWeight: 60,
+            utilization: 40,
+            fullBins: 0
+          }
+        ]
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockZoneAnalytics
+      });
+
+      const result = await apiService.getZoneAnalytics();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/admin/analytics/zone-analytics'),
+        expect.any(Object)
+      );
+      expect(Array.isArray(result.data)).toBe(true);
+    });
+
+    it('should include zone metrics', async () => {
+      const mockZoneAnalytics = {
+        success: true,
+        data: [
+          {
+            zone: 'Zone A',
+            binCount: 3,
+            averageFillLevel: 60,
+            totalWeight: 150
+          }
+        ]
+      };
+
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockZoneAnalytics
+      });
+
+      const result = await apiService.getZoneAnalytics();
+
+      expect(result.data[0]).toHaveProperty('zone');
+      expect(result.data[0]).toHaveProperty('binCount');
+      expect(result.data[0]).toHaveProperty('averageFillLevel');
+      expect(result.data[0]).toHaveProperty('totalWeight');
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle network errors', async () => {
+      fetch.mockRejectedValueOnce(new Error('Network request failed'));
+
+      await expect(apiService.getKPIs()).rejects.toThrow('Network request failed');
+    });
+
+    it('should handle 404 errors', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ success: false, message: 'Not found' })
+      });
+
+      await expect(apiService.getAnalytics()).rejects.toThrow();
+    });
+
+    it('should handle 500 errors', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ success: false, message: 'Server error' })
+      });
+
+      await expect(apiService.getKPIs()).rejects.toThrow();
+    });
+  });
+
+  describe('Authentication', () => {
+    it('should include auth token in requests', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: {} })
+      });
+
+      await apiService.getAnalytics();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json'
+          })
+        })
+      );
+    });
+  });
+});
+

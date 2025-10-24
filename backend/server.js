@@ -52,9 +52,15 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-  console.log(`Local:   http://localhost:${PORT}`);
-  console.log(`Network: http://192.168.1.8:${PORT}`);
-  console.log('Server is ready to accept connections from any network interface');
-});
+// Only start server if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    console.log(`Local:   http://localhost:${PORT}`);
+    console.log(`Network: http://192.168.1.8:${PORT}`);
+    console.log('Server is ready to accept connections from any network interface');
+  });
+}
+
+// Export app for testing
+module.exports = app;

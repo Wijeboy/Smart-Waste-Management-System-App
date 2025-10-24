@@ -15,17 +15,42 @@ let authToken;
 let adminUser;
 let testUser;
 
+// Helper to create valid user object
+const createValidUser = (overrides = {}) => ({
+  firstName: overrides.firstName || 'Test',
+  lastName: overrides.lastName || 'User',
+  username: overrides.username || 'testuser',
+  email: overrides.email || 'test@test.com',
+  password: overrides.password || 'Pass123!',
+  nic: overrides.nic || '123456789V',
+  dateOfBirth: overrides.dateOfBirth || new Date('1990-01-01'),
+  phoneNo: overrides.phoneNo || '0771234567',
+  role: overrides.role || 'user',
+  accountStatus: overrides.accountStatus || 'active',
+  ...overrides
+});
+
 // Setup: Connect to in-memory MongoDB
 beforeAll(async () => {
+  // Disconnect any existing connections
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+  }
+  
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
   await mongoose.connect(mongoUri);
 
   // Create admin user and get token
   adminUser = await User.create({
+    firstName: 'Admin',
+    lastName: 'User',
     username: 'admin',
     email: 'admin@test.com',
     password: 'Admin123!',
+    nic: '987654321V',
+    dateOfBirth: new Date('1985-01-01'),
+    phoneNo: '0779876543',
     role: 'admin',
     accountStatus: 'active'
   });
@@ -50,8 +75,8 @@ describe('User Controller - getAllUsers', () => {
     it('should get all users with default pagination', async () => {
       // Create test users
       await User.create([
-        { username: 'user1', email: 'user1@test.com', password: 'Pass123!', role: 'user' },
-        { username: 'user2', email: 'user2@test.com', password: 'Pass123!', role: 'collector' }
+        createValidUser({ username: 'user1', email: 'user1@test.com', role: 'user' }),
+        createValidUser({ username: 'user2', email: 'user2@test.com', role: 'collector' })
       ]);
 
       const res = await request(app)
