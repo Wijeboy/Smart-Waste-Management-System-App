@@ -15,7 +15,8 @@ const {
   getBinStats,
   createResidentBin,
   getResidentBins,
-  getResidentBinSchedule
+  getResidentBinSchedule,
+  getResidentCollectionHistory
 } = require('../controllers/binController');
 const { protect } = require('../middleware/auth');
 
@@ -45,6 +46,7 @@ router.get('/status/:status', getBinsByStatus);
 // Resident-specific routes (before main CRUD to avoid conflicts)
 router.post('/resident', binValidation, createResidentBin);
 router.get('/resident/my-bins', getResidentBins);
+router.get('/resident/collection-history', getResidentCollectionHistory);
 router.get('/resident/:id/schedule', getResidentBinSchedule);
 
 // Main CRUD routes

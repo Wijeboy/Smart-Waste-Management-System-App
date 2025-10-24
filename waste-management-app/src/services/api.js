@@ -250,6 +250,12 @@ class ApiService {
     });
   }
 
+  async getResidentCollectionHistory() {
+    return this.request('/bins/resident/collection-history', {
+      method: 'GET',
+    });
+  }
+
   // ========================================
   // Admin User Management
   // ========================================

@@ -603,3 +603,89 @@ exports.getResidentBinSchedule = async (req, res) => {
   }
 };
 
+// @desc    Get collection history for resident's bins
+// @route   GET /api/bins/resident/collection-history
+// @access  Private (Resident only)
+exports.getResidentCollectionHistory = async (req, res) => {
+  try {
+    // Check if user is a resident
+    if (req.user.role !== 'resident') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only residents can access this endpoint'
+      });
+    }
+
+    // Get all bins owned by this resident
+    const bins = await Bin.find({ owner: req.user.id }).select('_id binId location binType capacity');
+
+    if (!bins || bins.length === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: []
+      });
+    }
+
+    // Get bin IDs
+    const binIds = bins.map(b => b._id);
+
+    // Import Route model
+    const Route = require('../models/Route');
+
+    // Find all completed routes that collected these bins
+    const routes = await Route.find({
+      'bins.bin': { $in: binIds },
+      'bins.status': 'collected'
+    })
+      .populate('assignedTo', 'firstName lastName')
+      .populate('bins.bin', 'binId location binType capacity')
+      .sort({ completedAt: -1 }); // Newest first
+
+    // Build collection history array
+    const collectionHistory = [];
+
+    routes.forEach(route => {
+      route.bins.forEach(binItem => {
+        // Check if this bin belongs to the resident and was collected
+        if (binItem.status === 'collected' && 
+            bins.some(b => b._id.toString() === binItem.bin._id.toString())) {
+          
+          collectionHistory.push({
+            _id: `${route._id}_${binItem.bin._id}`, // Unique ID for each collection record
+            binId: binItem.bin.binId,
+            binLocation: binItem.bin.location,
+            binType: binItem.bin.binType,
+            binCapacity: binItem.bin.capacity,
+            collectedAt: binItem.collectedAt || route.completedAt,
+            collectorName: route.assignedTo 
+              ? `${route.assignedTo.firstName} ${route.assignedTo.lastName}`
+              : 'Unknown',
+            collectorId: route.assignedTo?._id,
+            weight: binItem.actualWeight || 0,
+            fillLevelAtCollection: binItem.fillLevelAtCollection || 0,
+            routeName: route.routeName,
+            routeId: route._id
+          });
+        }
+      });
+    });
+
+    // Sort by collection date (newest first)
+    collectionHistory.sort((a, b) => new Date(b.collectedAt) - new Date(a.collectedAt));
+
+    res.status(200).json({
+      success: true,
+      count: collectionHistory.length,
+      data: collectionHistory
+    });
+  } catch (error) {
+    console.error('Error fetching collection history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching collection history',
+      error: error.message
+    });
+  }
+};
+

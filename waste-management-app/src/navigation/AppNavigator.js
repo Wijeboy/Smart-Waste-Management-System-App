@@ -42,7 +42,7 @@ import MyRoutesScreen from '../screens/Collector/MyRoutesScreen';
 import ActiveRouteScreen from '../screens/Collector/ActiveRouteScreen';
 
 // Import Resident screens
-import ResidentDashboard from '../screens/Resident/ResidentDashboard';
+import ResidentTabNavigator from './ResidentTabNavigator';
 
 const Stack = createNativeStackNavigator();
 
@@ -280,9 +280,9 @@ const AppNavigator = () => {
       {/* Resident Screens */}
       <Stack.Screen
         name="ResidentDashboard"
-        component={ResidentDashboard}
+        component={ResidentTabNavigator}
         options={{
-          title: 'Resident Dashboard',
+          title: 'My Dashboard',
           headerShown: false,
         }}
       />

@@ -1,6 +1,6 @@
 /**
- * Resident Dashboard Screen
- * Main dashboard for residents to manage their bins
+ * Resident Home Screen
+ * Main home screen for residents to manage their bins
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -20,8 +20,8 @@ import { COLORS, FONTS } from '../../constants/theme';
 import AddBinModal from '../../components/AddBinModal';
 import ResidentBinCard from '../../components/ResidentBinCard';
 
-const ResidentDashboard = ({ navigation }) => {
-  const { user, logout } = useAuth();
+const ResidentHomeScreen = ({ navigation }) => {
+  const { user } = useAuth();
   const [bins, setBins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -112,9 +112,6 @@ const ResidentDashboard = ({ navigation }) => {
           <Text style={styles.greeting}>Welcome back,</Text>
           <Text style={styles.userName}>{user?.firstName} {user?.lastName}</Text>
         </View>
-        <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -208,9 +205,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryDarkTeal,
     padding: 20,
     paddingTop: 50,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   greeting: {
     fontSize: FONTS.size.body,
@@ -222,17 +216,6 @@ const styles = StyleSheet.create({
     fontWeight: FONTS.weight.bold,
     color: COLORS.textPrimary,
     marginTop: 4,
-  },
-  logoutButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  logoutText: {
-    color: COLORS.textPrimary,
-    fontSize: FONTS.size.small,
-    fontWeight: FONTS.weight.semiBold,
   },
   scrollContent: {
     padding: 16,
@@ -326,4 +309,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ResidentDashboard;
+export default ResidentHomeScreen;
