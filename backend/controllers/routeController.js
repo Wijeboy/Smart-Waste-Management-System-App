@@ -457,6 +457,11 @@ exports.startRoute = async (req, res) => {
 // @access  Private/Collector
 exports.collectBin = async (req, res) => {
   try {
+    const { actualWeight } = req.body; // Collector enters actual weight in kg
+    console.log('🎯 collectBin called - Route:', req.params.id, 'Bin:', req.params.binId);
+    console.log('📦 Request body:', req.body);
+    console.log('⚖️ Actual weight received:', actualWeight, typeof actualWeight);
+    
     const route = await Route.findById(req.params.id);
     
     if (!route) {
@@ -482,6 +487,16 @@ exports.collectBin = async (req, res) => {
       });
     }
     
+    // Validate actual weight if provided
+    if (actualWeight !== undefined) {
+      if (typeof actualWeight !== 'number' || actualWeight < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Actual weight must be a positive number'
+        });
+      }
+    }
+    
     // Find bin in route
     const binIndex = route.bins.findIndex(b => b.bin.toString() === req.params.binId);
     
@@ -492,16 +507,28 @@ exports.collectBin = async (req, res) => {
       });
     }
     
-    // Update bin status
+    // Get bin details BEFORE updating
+    const binDetails = await Bin.findById(req.params.binId);
+    
+    // Update bin collection status in route
     route.bins[binIndex].status = 'collected';
     route.bins[binIndex].collectedAt = Date.now();
+    route.bins[binIndex].fillLevelAtCollection = binDetails.fillLevel; // Store for reference
+    
+    // Only set actualWeight if it was provided (don't default to 0!)
+    if (actualWeight !== undefined && actualWeight !== null) {
+      route.bins[binIndex].actualWeight = actualWeight;
+      console.log(`📊 Storing actual weight: ${actualWeight}kg for bin ${binDetails.binId}`);
+    } else {
+      console.log(`⚠️ No weight provided for bin ${binDetails.binId}, will use estimated weight`);
+    }
     
     await route.save();
     
     // Update the actual bin's fillLevel and lastCollection
     await Bin.findByIdAndUpdate(req.params.binId, {
       fillLevel: 0,
-      weight: 0,
+      weight: actualWeight || 0, // Update bin's weight with actual collected weight
       lastCollection: Date.now(),
       status: 'active'
     });
@@ -511,7 +538,10 @@ exports.collectBin = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Bin collected successfully',
-      data: { route }
+      data: { 
+        route,
+        collectedWeight: actualWeight || 0
+      }
     });
   } catch (error) {
     console.error('Collect bin error:', error);
@@ -642,15 +672,80 @@ exports.completeRoute = async (req, res) => {
       });
     }
     
-    route.status = 'completed';
-    route.completedAt = Date.now();
-    await route.save();
+    // Populate bin details to calculate analytics
     await route.populate('bins.bin');
+    
+    // Calculate analytics data
+    const collectedBins = route.bins.filter(b => b.status === 'collected');
+    const binsCollected = collectedBins.length;
+    
+    // Calculate waste collected from bins
+    let wasteCollected = 0;
+    let recyclableWaste = 0;
+    
+    collectedBins.forEach(binItem => {
+      if (binItem.bin) {
+        // Use ACTUAL weight entered by collector (most accurate)
+        // If not entered, fall back to estimated weight based on fill level
+        let binWaste = 0;
+        
+        // Check if actualWeight exists and is a valid number (including 0 is valid!)
+        if (binItem.actualWeight !== undefined && binItem.actualWeight !== null) {
+          // Use actual weight entered by collector (PREFERRED METHOD)
+          binWaste = binItem.actualWeight;
+          console.log(`✅ Using ACTUAL weight for bin ${binItem.bin.binId}: ${binWaste}kg`);
+        } else {
+          // Fallback: estimate based on fill level at collection
+          const fillLevel = binItem.fillLevelAtCollection !== undefined 
+            ? binItem.fillLevelAtCollection 
+            : binItem.bin.fillLevel;
+          binWaste = (fillLevel / 100) * binItem.bin.capacity;
+          console.log(`⚠️ Using ESTIMATED weight for bin ${binItem.bin.binId}: ${fillLevel}% × ${binItem.bin.capacity}kg = ${binWaste}kg`);
+        }
+        
+        wasteCollected += binWaste;
+        
+        // If bin type is recyclable, add to recyclable waste
+        if (binItem.bin.binType === 'Recyclable') {
+          recyclableWaste += binWaste;
+        }
+      }
+    });
+    
+    // Calculate efficiency (percentage of scheduled bins that were collected)
+    const efficiency = route.bins.length > 0 
+      ? Math.round((binsCollected / route.bins.length) * 100) 
+      : 0;
+    
+    // Calculate completion time if startedAt exists
+    const startTime = route.startedAt || route.scheduledDate;
+    const endTime = new Date();
+    
+    // Update route with completion data and analytics
+    route.status = 'completed';
+    route.completedAt = endTime;
+    route.endTime = endTime;
+    route.startTime = startTime;
+    route.binsCollected = binsCollected;
+    route.wasteCollected = Math.round(wasteCollected);
+    route.recyclableWaste = Math.round(recyclableWaste);
+    route.efficiency = efficiency;
+    route.satisfaction = 0; // Will be set later by feedback system
+    
+    await route.save();
     
     res.status(200).json({
       success: true,
       message: 'Route completed successfully',
-      data: { route }
+      data: { 
+        route,
+        analytics: {
+          binsCollected,
+          wasteCollected: Math.round(wasteCollected),
+          recyclableWaste: Math.round(recyclableWaste),
+          efficiency
+        }
+      }
     });
   } catch (error) {
     console.error('Complete route error:', error);

@@ -534,11 +534,11 @@ export const RouteProvider = ({ children }) => {
   /**
    * Collect bin (Collector)
    */
-  const collectBin = async (routeId, binId) => {
+  const collectBin = async (routeId, binId, actualWeight) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiService.collectBin(routeId, binId);
+      const response = await apiService.collectBin(routeId, binId, actualWeight);
       setSelectedRoute(response.data.route);
       return { success: true, data: response.data };
     } catch (err) {

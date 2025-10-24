@@ -11,7 +11,10 @@ const {
   getKPIs,
   getCollectionTrends,
   getWasteDistribution,
-  getRoutePerformance
+  getRoutePerformance,
+  getBinAnalytics,
+  getUserAnalyticsData,
+  getZoneAnalytics
 } = require('../controllers/analyticsController');
 
 // All analytics routes are admin-only
@@ -32,5 +35,14 @@ router.get('/waste-distribution', getWasteDistribution);
 
 // Get route performance analytics
 router.get('/route-performance', getRoutePerformance);
+
+// Get bin analytics (NEW)
+router.get('/bin-analytics', getBinAnalytics);
+
+// Get user analytics (NEW)
+router.get('/user-analytics', getUserAnalyticsData);
+
+// Get zone analytics (NEW)
+router.get('/zone-analytics', getZoneAnalytics);
 
 module.exports = router;

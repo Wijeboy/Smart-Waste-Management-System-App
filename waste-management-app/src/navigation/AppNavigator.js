@@ -18,6 +18,7 @@ import AnalyticsDashboard from '../screens/Analytics/AnalyticsDashboard';
 import AnalyticsReportsScreen from '../screens/Analytics/ReportsScreen';
 import KPIsScreen from '../screens/Analytics/KPIsScreen';
 import RealTimeAnalyticsDashboard from '../screens/Analytics/RealTimeAnalyticsDashboard';
+import EnhancedAnalyticsDashboard from '../screens/Analytics/EnhancedAnalyticsDashboard';
 
 // Import other analytics-related screens
 import DataCollectionScreen from '../screens/DataCollectionScreen';
@@ -241,6 +242,14 @@ const AppNavigator = () => {
         component={BinManagementScreen}
         options={{
           title: 'Bin Management',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="EnhancedAnalytics"
+        component={EnhancedAnalyticsDashboard}
+        options={{
+          title: 'Enhanced Analytics',
           headerShown: false,
         }}
       />

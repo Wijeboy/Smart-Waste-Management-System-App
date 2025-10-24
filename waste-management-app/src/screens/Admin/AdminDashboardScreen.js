@@ -160,7 +160,7 @@ const AdminDashboardScreen = ({ navigation }) => {
             {renderQuickAction('👥', 'Manage Users', () => navigation.navigate('UserManagement'))}
             {renderQuickAction('🚛', 'Manage Routes', () => navigation.navigate('AdminRouteManagement'))}
             {renderQuickAction('🗑️', 'View Bins', () => navigation.navigate('BinManagement'))}
-            {renderQuickAction('📊', 'Analytics', () => navigation.navigate('RealTimeAnalytics'))}
+            {renderQuickAction('📊', 'Enhanced Analytics', () => navigation.navigate('EnhancedAnalytics'))}
           </View>
         </View>
 

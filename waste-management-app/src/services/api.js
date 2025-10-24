@@ -60,6 +60,9 @@ class ApiService {
     console.log('API Request:', url);
     console.log('API Method:', options.method || 'GET');
     console.log('API Headers:', headers);
+    if (options.body) {
+      console.log('API Body:', options.body);
+    }
 
     try {
       const response = await fetch(url, {
@@ -328,9 +331,10 @@ class ApiService {
     });
   }
 
-  async collectBin(routeId, binId) {
+  async collectBin(routeId, binId, actualWeight) {
     return this.request(`/routes/${routeId}/bins/${binId}/collect`, {
       method: 'PUT',
+      body: JSON.stringify({ actualWeight }),
     });
   }
 
@@ -377,6 +381,24 @@ class ApiService {
 
   async getRoutePerformance() {
     return this.request('/admin/analytics/route-performance', {
+      method: 'GET',
+    });
+  }
+
+  async getBinAnalytics() {
+    return this.request('/admin/analytics/bin-analytics', {
+      method: 'GET',
+    });
+  }
+
+  async getUserAnalytics() {
+    return this.request('/admin/analytics/user-analytics', {
+      method: 'GET',
+    });
+  }
+
+  async getZoneAnalytics() {
+    return this.request('/admin/analytics/zone-analytics', {
       method: 'GET',
     });
   }

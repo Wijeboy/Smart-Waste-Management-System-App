@@ -14,6 +14,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  TextInput,
 } from 'react-native';
 import { COLORS, FONTS } from '../../constants/theme';
 import { useRoute } from '../../context/RouteContext';
@@ -27,6 +28,7 @@ const ActiveRouteScreen = ({ route, navigation }) => {
   const [routeData, setRouteData] = useState(null);
   const [selectedBin, setSelectedBin] = useState(null);
   const [showCollectionModal, setShowCollectionModal] = useState(false);
+  const [actualWeight, setActualWeight] = useState('');
 
   useEffect(() => {
     loadRouteData();
@@ -70,6 +72,7 @@ const ActiveRouteScreen = ({ route, navigation }) => {
   const handleBinPress = (bin) => {
     if (bin.status === 'pending') {
       setSelectedBin(bin);
+      setActualWeight(''); // Reset weight input
       setShowCollectionModal(true);
     }
   };
@@ -77,13 +80,21 @@ const ActiveRouteScreen = ({ route, navigation }) => {
   const handleCollectBin = async () => {
     if (!selectedBin) return;
     
+    // Validate weight input
+    const weightValue = parseFloat(actualWeight);
+    if (!actualWeight || isNaN(weightValue) || weightValue <= 0) {
+      Alert.alert('Invalid Weight', 'Please enter a valid weight in kg (greater than 0)');
+      return;
+    }
+    
     try {
-      const result = await collectBin(routeData._id, selectedBin.bin._id);
+      const result = await collectBin(routeData._id, selectedBin.bin._id, weightValue);
       if (result.success) {
         setRouteData(result.data.route);
         setShowCollectionModal(false);
         setSelectedBin(null);
-        Alert.alert('Success', 'Bin collected successfully');
+        setActualWeight('');
+        Alert.alert('Success', `Bin collected successfully!\nWeight: ${weightValue} kg`);
       } else {
         Alert.alert('Error', result.error || 'Failed to collect bin');
       }
@@ -328,8 +339,27 @@ const ActiveRouteScreen = ({ route, navigation }) => {
               <View style={styles.modalBinInfo}>
                 <Text style={styles.modalBinId}>{selectedBin.bin?.binId}</Text>
                 <Text style={styles.modalBinLocation}>{selectedBin.bin?.location}</Text>
+                <View style={styles.binDetailsRow}>
+                  <Text style={styles.binDetailLabel}>Type: {selectedBin.bin?.binType}</Text>
+                  <Text style={styles.binDetailLabel}>Capacity: {selectedBin.bin?.capacity}kg</Text>
+                </View>
               </View>
             )}
+
+            <View style={styles.weightInputContainer}>
+              <Text style={styles.weightInputLabel}>Actual Weight Collected (kg) *</Text>
+              <TextInput
+                style={styles.weightInput}
+                placeholder="Enter weight in kg"
+                keyboardType="decimal-pad"
+                value={actualWeight}
+                onChangeText={setActualWeight}
+                autoFocus
+              />
+              <Text style={styles.weightInputHint}>
+                💡 Enter the actual weight you collected from this bin
+              </Text>
+            </View>
 
             <TouchableOpacity
               style={styles.modalCollectButton}
@@ -618,6 +648,41 @@ const styles = StyleSheet.create({
   modalBinLocation: {
     fontSize: 14,
     color: '#6B7280',
+    marginBottom: 8,
+  },
+  binDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  binDetailLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: FONTS.weight.semiBold,
+  },
+  weightInputContainer: {
+    marginBottom: 20,
+  },
+  weightInputLabel: {
+    fontSize: 16,
+    fontWeight: FONTS.weight.semiBold,
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  weightInput: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 18,
+    color: '#1F2937',
+    borderWidth: 2,
+    borderColor: COLORS.primaryDarkTeal,
+  },
+  weightInputHint: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   modalCollectButton: {
     backgroundColor: '#10B981',

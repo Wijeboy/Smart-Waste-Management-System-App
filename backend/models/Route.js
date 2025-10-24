@@ -36,6 +36,16 @@ const routeSchema = new mongoose.Schema({
     collectedAt: {
       type: Date
     },
+    fillLevelAtCollection: {
+      type: Number,
+      min: 0,
+      max: 100
+    },
+    actualWeight: {
+      type: Number,
+      min: 0,
+      comment: 'Actual weight in kg entered by collector'
+    },
     notes: {
       type: String,
       maxlength: 500

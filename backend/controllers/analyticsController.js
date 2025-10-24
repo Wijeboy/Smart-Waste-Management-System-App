@@ -117,6 +117,60 @@ exports.getRoutePerformance = async (req, res) => {
   }
 };
 
+// Get Bin Analytics (NEW)
+exports.getBinAnalytics = async (req, res) => {
+  try {
+    const binAnalytics = await getBinAnalyticsData();
+
+    res.status(200).json({
+      success: true,
+      data: binAnalytics
+    });
+  } catch (error) {
+    console.error('Bin analytics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch bin analytics data'
+    });
+  }
+};
+
+// Get User Analytics (NEW)
+exports.getUserAnalyticsData = async (req, res) => {
+  try {
+    const userAnalytics = await getUserAnalyticsDetailed();
+
+    res.status(200).json({
+      success: true,
+      data: userAnalytics
+    });
+  } catch (error) {
+    console.error('User analytics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user analytics data'
+    });
+  }
+};
+
+// Get Zone Analytics (NEW)
+exports.getZoneAnalytics = async (req, res) => {
+  try {
+    const zoneAnalytics = await getZoneAnalyticsData();
+
+    res.status(200).json({
+      success: true,
+      data: zoneAnalytics
+    });
+  } catch (error) {
+    console.error('Zone analytics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch zone analytics data'
+    });
+  }
+};
+
 // Helper Functions
 
 async function getUserAnalytics() {
@@ -463,4 +517,203 @@ async function getRoutePerformanceData() {
       wasteCollected: route.wasteCollected || 0
     };
   });
+}
+
+// NEW: Bin Analytics Data
+async function getBinAnalyticsData() {
+  const bins = await Bin.find();
+  
+  // Bin Status Distribution
+  const statusDistribution = {
+    active: await Bin.countDocuments({ status: 'active' }),
+    full: await Bin.countDocuments({ status: 'full' }),
+    maintenance: await Bin.countDocuments({ status: 'maintenance' }),
+    inactive: await Bin.countDocuments({ status: 'inactive' })
+  };
+  
+  // Bin Type Distribution
+  const typeDistribution = {
+    Organic: await Bin.countDocuments({ binType: 'Organic' }),
+    Recyclable: await Bin.countDocuments({ binType: 'Recyclable' }),
+    'General Waste': await Bin.countDocuments({ binType: 'General Waste' }),
+    Hazardous: await Bin.countDocuments({ binType: 'Hazardous' })
+  };
+  
+  // Fill Level Analysis
+  const fillLevels = {
+    empty: await Bin.countDocuments({ fillLevel: { $lt: 25 } }),
+    low: await Bin.countDocuments({ fillLevel: { $gte: 25, $lt: 50 } }),
+    medium: await Bin.countDocuments({ fillLevel: { $gte: 50, $lt: 75 } }),
+    high: await Bin.countDocuments({ fillLevel: { $gte: 75, $lt: 90 } }),
+    critical: await Bin.countDocuments({ fillLevel: { $gte: 90 } })
+  };
+  
+  // Average fill level
+  const avgFillResult = await Bin.aggregate([
+    { $group: { _id: null, avgFill: { $avg: '$fillLevel' } } }
+  ]);
+  const averageFillLevel = avgFillResult.length > 0 ? Math.round(avgFillResult[0].avgFill) : 0;
+  
+  // Capacity utilization
+  const capacityResult = await Bin.aggregate([
+    { $group: { _id: null, totalCapacity: { $sum: '$capacity' }, totalWeight: { $sum: '$weight' } } }
+  ]);
+  const capacityUtilization = capacityResult.length > 0 
+    ? Math.round((capacityResult[0].totalWeight / capacityResult[0].totalCapacity) * 100)
+    : 0;
+  
+  return {
+    statusDistribution: Object.keys(statusDistribution).map(key => ({
+      status: key.charAt(0).toUpperCase() + key.slice(1),
+      count: statusDistribution[key],
+      percentage: Math.round((statusDistribution[key] / bins.length) * 100),
+      color: key === 'active' ? '#10B981' : key === 'full' ? '#EF4444' : key === 'maintenance' ? '#F59E0B' : '#6B7280'
+    })),
+    typeDistribution: Object.keys(typeDistribution).map(key => ({
+      type: key,
+      count: typeDistribution[key],
+      percentage: Math.round((typeDistribution[key] / bins.length) * 100),
+      color: key === 'Organic' ? '#10B981' : key === 'Recyclable' ? '#3B82F6' : key === 'General Waste' ? '#6B7280' : '#EF4444'
+    })),
+    fillLevels: Object.keys(fillLevels).map(key => ({
+      level: key.charAt(0).toUpperCase() + key.slice(1),
+      count: fillLevels[key],
+      percentage: Math.round((fillLevels[key] / bins.length) * 100),
+      color: key === 'empty' ? '#10B981' : key === 'low' ? '#3B82F6' : key === 'medium' ? '#F59E0B' : key === 'high' ? '#EF4444' : '#991B1B'
+    })),
+    summary: {
+      totalBins: bins.length,
+      averageFillLevel,
+      capacityUtilization,
+      criticalBins: fillLevels.critical,
+      fullBins: statusDistribution.full
+    }
+  };
+}
+
+// NEW: User Analytics Detailed Data
+async function getUserAnalyticsDetailed() {
+  const users = await User.find();
+  
+  // Role Distribution
+  const roleDistribution = {
+    admin: await User.countDocuments({ role: 'admin' }),
+    collector: await User.countDocuments({ role: 'collector' }),
+    user: await User.countDocuments({ role: 'user' })
+  };
+  
+  // Activity Status
+  const activityStatus = {
+    active: await User.countDocuments({ isActive: true }),
+    inactive: await User.countDocuments({ isActive: false })
+  };
+  
+  // Account Status
+  const accountStatus = {
+    active: await User.countDocuments({ accountStatus: 'active' }),
+    suspended: await User.countDocuments({ accountStatus: 'suspended' }),
+    pending: await User.countDocuments({ accountStatus: 'pending' })
+  };
+  
+  // User growth over time (last 6 months)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  
+  const userGrowth = await User.aggregate([
+    { $match: { createdAt: { $gte: sixMonthsAgo } } },
+    {
+      $group: {
+        _id: {
+          year: { $year: '$createdAt' },
+          month: { $month: '$createdAt' }
+        },
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { '_id.year': 1, '_id.month': 1 } }
+  ]);
+  
+  return {
+    roleDistribution: Object.keys(roleDistribution).map(key => ({
+      role: key.charAt(0).toUpperCase() + key.slice(1),
+      count: roleDistribution[key],
+      percentage: Math.round((roleDistribution[key] / users.length) * 100),
+      color: key === 'admin' ? '#EF4444' : key === 'collector' ? '#3B82F6' : '#10B981'
+    })),
+    activityStatus: Object.keys(activityStatus).map(key => ({
+      status: key.charAt(0).toUpperCase() + key.slice(1),
+      count: activityStatus[key],
+      percentage: Math.round((activityStatus[key] / users.length) * 100),
+      color: key === 'active' ? '#10B981' : '#6B7280'
+    })),
+    accountStatus: Object.keys(accountStatus).map(key => ({
+      status: key.charAt(0).toUpperCase() + key.slice(1),
+      count: accountStatus[key],
+      percentage: Math.round((accountStatus[key] / users.length) * 100),
+      color: key === 'active' ? '#10B981' : key === 'suspended' ? '#EF4444' : '#F59E0B'
+    })),
+    userGrowth: userGrowth.map(item => ({
+      month: `${item._id.year}-${String(item._id.month).padStart(2, '0')}`,
+      count: item.count
+    })),
+    summary: {
+      totalUsers: users.length,
+      activeUsers: activityStatus.active,
+      totalCollectors: roleDistribution.collector,
+      totalAdmins: roleDistribution.admin
+    }
+  };
+}
+
+// NEW: Zone Analytics Data
+async function getZoneAnalyticsData() {
+  const bins = await Bin.find();
+  
+  // Group bins by zone
+  const zoneGroups = {};
+  bins.forEach(bin => {
+    const zone = bin.zone || 'Unassigned';
+    if (!zoneGroups[zone]) {
+      zoneGroups[zone] = {
+        zone,
+        binCount: 0,
+        totalCapacity: 0,
+        totalWeight: 0,
+        avgFillLevel: 0,
+        fullBins: 0,
+        bins: []
+      };
+    }
+    zoneGroups[zone].binCount++;
+    zoneGroups[zone].totalCapacity += bin.capacity || 0;
+    zoneGroups[zone].totalWeight += bin.weight || 0;
+    zoneGroups[zone].bins.push(bin.fillLevel || 0);
+    if (bin.status === 'full' || bin.fillLevel >= 90) {
+      zoneGroups[zone].fullBins++;
+    }
+  });
+  
+  // Calculate averages and format data
+  const zoneAnalytics = Object.values(zoneGroups).map((zone, index) => {
+    const avgFill = zone.bins.length > 0 
+      ? Math.round(zone.bins.reduce((a, b) => a + b, 0) / zone.bins.length)
+      : 0;
+    const utilization = zone.totalCapacity > 0 
+      ? Math.round((zone.totalWeight / zone.totalCapacity) * 100)
+      : 0;
+    
+    return {
+      zone: zone.zone,
+      binCount: zone.binCount,
+      totalCapacity: zone.totalCapacity,
+      totalWeight: zone.totalWeight,
+      averageFillLevel: avgFill,
+      utilization,
+      fullBins: zone.fullBins,
+      percentage: Math.round((zone.binCount / bins.length) * 100),
+      color: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'][index % 6]
+    };
+  }).sort((a, b) => b.binCount - a.binCount);
+  
+  return zoneAnalytics;
 }
