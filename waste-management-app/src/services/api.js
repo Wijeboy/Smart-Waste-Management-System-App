@@ -230,6 +230,26 @@ class ApiService {
     });
   }
 
+  // Resident Bin endpoints
+  async createResidentBin(binData) {
+    return this.request('/bins/resident', {
+      method: 'POST',
+      body: JSON.stringify(binData),
+    });
+  }
+
+  async getResidentBins() {
+    return this.request('/bins/resident/my-bins', {
+      method: 'GET',
+    });
+  }
+
+  async getResidentBinSchedule(binId) {
+    return this.request(`/bins/resident/${binId}/schedule`, {
+      method: 'GET',
+    });
+  }
+
   // ========================================
   // Admin User Management
   // ========================================

@@ -65,8 +65,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin', 'collector'],
-    default: 'collector' // Default to collector since only Admin and Collectors exist
+    enum: ['user', 'admin', 'collector', 'resident'],
+    default: 'collector' // Default to collector for backward compatibility
   },
   isActive: {
     type: Boolean,

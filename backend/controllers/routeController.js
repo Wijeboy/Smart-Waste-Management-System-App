@@ -550,13 +550,28 @@ exports.collectBin = async (req, res) => {
     
     await route.save();
     
-    // Update the actual bin's fillLevel and lastCollection
-    await Bin.findByIdAndUpdate(req.params.binId, {
+    // Prepare collection data for updating bin
+    const collectionUpdate = {
       fillLevel: 0,
-      weight: actualWeight || 0, // Update bin's weight with actual collected weight
+      weight: actualWeight || 0,
       lastCollection: Date.now(),
       status: 'active'
-    });
+    };
+
+    // If bin has an owner (resident bin), update latestCollection
+    if (binDetails.owner) {
+      collectionUpdate.latestCollection = {
+        collectedAt: Date.now(),
+        collectedBy: req.user.id,
+        collectorName: `${req.user.firstName} ${req.user.lastName}`,
+        weight: actualWeight || 0,
+        fillLevelAtCollection: binDetails.fillLevel
+      };
+      console.log(`✅ Updating resident bin ${binDetails.binId} with collection details`);
+    }
+    
+    // Update the actual bin's fillLevel and lastCollection
+    await Bin.findByIdAndUpdate(req.params.binId, collectionUpdate);
     
     await route.populate('bins.bin');
     

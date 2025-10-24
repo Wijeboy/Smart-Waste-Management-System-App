@@ -41,6 +41,9 @@ import BinManagementScreen from '../screens/Admin/BinManagementScreen';
 import MyRoutesScreen from '../screens/Collector/MyRoutesScreen';
 import ActiveRouteScreen from '../screens/Collector/ActiveRouteScreen';
 
+// Import Resident screens
+import ResidentDashboard from '../screens/Resident/ResidentDashboard';
+
 const Stack = createNativeStackNavigator();
 
 /**
@@ -57,6 +60,8 @@ const AppNavigator = () => {
       return 'AdminDashboard';
     } else if (user?.role === 'collector') {
       return 'Dashboard'; // Collectors go to Dashboard with bottom nav
+    } else if (user?.role === 'resident') {
+      return 'ResidentDashboard'; // Residents go to Resident Dashboard
     }
     return 'Dashboard';
   };
@@ -268,6 +273,16 @@ const AppNavigator = () => {
         component={ActiveRouteScreen}
         options={{
           title: 'Active Route',
+          headerShown: false,
+        }}
+      />
+
+      {/* Resident Screens */}
+      <Stack.Screen
+        name="ResidentDashboard"
+        component={ResidentDashboard}
+        options={{
+          title: 'Resident Dashboard',
           headerShown: false,
         }}
       />

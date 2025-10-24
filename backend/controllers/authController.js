@@ -31,8 +31,13 @@ exports.register = async (req, res) => {
       password,
       nic,
       dateOfBirth,
-      phoneNo
+      phoneNo,
+      role
     } = req.body;
+
+    // Validate role if provided
+    const allowedRoles = ['collector', 'resident'];
+    const userRole = role && allowedRoles.includes(role) ? role : 'collector';
 
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -63,7 +68,8 @@ exports.register = async (req, res) => {
       password,
       nic,
       dateOfBirth,
-      phoneNo
+      phoneNo,
+      role: userRole
     });
 
     // Generate token

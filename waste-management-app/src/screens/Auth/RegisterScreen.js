@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, FONTS } from '../../constants/theme';
@@ -32,6 +33,7 @@ const RegisterScreen = ({ navigation }) => {
     nic: '',
     dateOfBirth: '',
     phoneNo: '',
+    role: 'collector', // Default role
   });
   const [errors, setErrors] = useState({});
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -222,6 +224,26 @@ const RegisterScreen = ({ navigation }) => {
             {errors.username && (
               <Text style={styles.errorText}>{errors.username}</Text>
             )}
+          </View>
+
+          {/* Role Selection */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Register As</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={formData.role}
+                onValueChange={(value) => handleChange('role', value)}
+                style={styles.picker}
+              >
+                <Picker.Item label="Waste Collector" value="collector" />
+                <Picker.Item label="Resident" value="resident" />
+              </Picker>
+            </View>
+            <Text style={styles.helperText}>
+              {formData.role === 'collector' 
+                ? 'Collectors can manage waste collection routes' 
+                : 'Residents can manage their bins and view collection schedules'}
+            </Text>
           </View>
 
           {/* Email */}
@@ -467,6 +489,22 @@ const styles = StyleSheet.create({
     fontSize: FONTS.size.small,
     color: COLORS.primaryDarkTeal,
     fontWeight: FONTS.weight.bold,
+  },
+  pickerContainer: {
+    backgroundColor: COLORS.lightBackground,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.progressBarBg,
+    overflow: 'hidden',
+  },
+  picker: {
+    height: 50,
+  },
+  helperText: {
+    fontSize: FONTS.size.caption,
+    color: COLORS.iconGray,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });
 

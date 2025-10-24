@@ -24,7 +24,9 @@ exports.getAllBins = async (req, res) => {
 
     const bins = await Bin.find(filter)
       .sort({ createdAt: -1 })
-      .populate('createdBy', 'firstName lastName');
+      .populate('createdBy', 'firstName lastName')
+      .populate('owner', 'firstName lastName email phoneNo')
+      .populate('latestCollection.collectedBy', 'firstName lastName');
 
     res.status(200).json({
       success: true,
@@ -400,3 +402,155 @@ exports.getBinStats = async (req, res) => {
     });
   }
 };
+
+// ============= RESIDENT-SPECIFIC ENDPOINTS =============
+
+// @desc    Create bin by resident
+// @route   POST /api/bins/resident
+// @access  Private (Resident only)
+exports.createResidentBin = async (req, res) => {
+  try {
+    // Check if user is a resident
+    if (req.user.role !== 'resident') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only residents can create bins through this endpoint'
+      });
+    }
+
+    // Check validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.error('Validation errors:', errors.array());
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    // Add owner and createdBy
+    req.body.owner = req.user.id;
+    req.body.createdBy = req.user.id;
+    
+    // Don't pass binId - let the pre-save hook generate it
+    delete req.body.binId;
+
+    console.log('Creating resident bin with data:', req.body);
+    // Use new Bin() and .save() to trigger pre-save hook
+    const bin = new Bin(req.body);
+    await bin.save();
+    console.log('Bin created successfully:', bin.binId);
+
+    res.status(201).json({
+      success: true,
+      message: 'Bin created successfully',
+      data: bin
+    });
+  } catch (error) {
+    console.error('Error creating resident bin:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bin ID already exists'
+      });
+    }
+    // Return detailed error for validation issues
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        error: error.message,
+        details: error.errors
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Error creating bin',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get resident's bins
+// @route   GET /api/bins/resident/my-bins
+// @access  Private (Resident only)
+exports.getResidentBins = async (req, res) => {
+  try {
+    // Check if user is a resident
+    if (req.user.role !== 'resident') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only residents can access this endpoint'
+      });
+    }
+
+    const bins = await Bin.find({ owner: req.user.id })
+      .sort({ createdAt: -1 })
+      .populate('latestCollection.collectedBy', 'firstName lastName');
+
+    res.status(200).json({
+      success: true,
+      count: bins.length,
+      data: bins
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching your bins',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get collection schedule for resident's bin
+// @route   GET /api/bins/resident/:id/schedule
+// @access  Private (Resident only)
+exports.getResidentBinSchedule = async (req, res) => {
+  try {
+    // Check if user is a resident
+    if (req.user.role !== 'resident') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only residents can access this endpoint'
+      });
+    }
+
+    const bin = await Bin.findOne({ _id: req.params.id, owner: req.user.id });
+
+    if (!bin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Bin not found or you do not have access to this bin'
+      });
+    }
+
+    // Import Route model here to avoid circular dependency
+    const Route = require('../models/Route');
+
+    // Find routes that include this bin and are scheduled or in-progress
+    const routes = await Route.find({
+      'bins.bin': bin._id,
+      status: { $in: ['scheduled', 'in-progress'] }
+    })
+      .select('routeName scheduledDate scheduledTime status assignedTo')
+      .populate('assignedTo', 'firstName lastName')
+      .sort({ scheduledDate: 1 });
+
+    res.status(200).json({
+      success: true,
+      bin: {
+        binId: bin.binId,
+        location: bin.location,
+        zone: bin.zone
+      },
+      upcomingCollections: routes
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching collection schedule',
+      error: error.message
+    });
+  }
+};
+

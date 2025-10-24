@@ -183,11 +183,21 @@ const BinManagementScreen = ({ navigation }) => {
         <View>
           <Text style={styles.binId}>{bin.binId}</Text>
           <Text style={styles.binLocation}>{bin.location}</Text>
+          {bin.owner && (
+            <Text style={styles.binOwner}>
+              🏠 Owner: {bin.owner.firstName} {bin.owner.lastName}
+            </Text>
+          )}
         </View>
         <View style={styles.binBadges}>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(bin.status) }]}>
             <Text style={styles.badgeText}>{bin.status}</Text>
           </View>
+          {bin.owner && (
+            <View style={[styles.statusBadge, { backgroundColor: COLORS.lightBlue, marginTop: 4 }]}>
+              <Text style={[styles.badgeText, { color: COLORS.primaryDarkTeal }]}>RESIDENT</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -485,6 +495,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 2,
+  },
+  binOwner: {
+    fontSize: 13,
+    color: COLORS.primaryDarkTeal,
+    marginTop: 4,
+    fontWeight: FONTS.weight.semiBold,
   },
   binBadges: {
     alignItems: 'flex-end',
