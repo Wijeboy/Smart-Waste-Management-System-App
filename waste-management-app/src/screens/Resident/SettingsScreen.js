@@ -3,7 +3,7 @@
  * Allows residents to view and edit profile, change password, and logout
  */
 
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,24 +13,20 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { UserContext } from '../../context/UserContext';
-import { AuthContext } from '../../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUser } from '../../context/UserContext';
+import { useAuth } from '../../context/AuthContext';
 import { COLORS, FONTS } from '../../constants/theme';
 import ResidentEditProfileModal from '../../components/ResidentEditProfileModal';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
 
-const SettingsScreen = () => {
-  const { user, refreshUser } = useContext(UserContext);
-  const { logout } = useContext(AuthContext);
+const SettingsScreen = ({ navigation }) => {
+  const { user } = useUser();
+  const { logout, refreshUserData } = useAuth();
   
   const [editProfileModalVisible, setEditProfileModalVisible] = useState(false);
   const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    // Refresh user data when screen comes into focus
-    refreshUser();
-  }, []);
 
   const handleLogout = () => {
     Alert.alert(
@@ -60,9 +56,16 @@ const SettingsScreen = () => {
     );
   };
 
-  const handleProfileUpdate = () => {
-    // Refresh user data after profile update
-    refreshUser();
+  const handleProfileUpdate = async (updatedUserData) => {
+    // Update the user data in AuthContext to reflect changes immediately
+    if (updatedUserData) {
+      try {
+        await refreshUserData(updatedUserData);
+        console.log('Profile updated and context refreshed:', updatedUserData);
+      } catch (error) {
+        console.error('Error refreshing profile:', error);
+      }
+    }
     setEditProfileModalVisible(false);
   };
 
@@ -160,6 +163,27 @@ const SettingsScreen = () => {
           </View>
         </View>
 
+        {/* Rewards Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Rewards</Text>
+          
+          <TouchableOpacity
+            style={styles.securityCard}
+            onPress={() => navigation.navigate('CreditPoints')}
+          >
+            <View style={styles.securityIconContainer}>
+              <Text style={styles.securityIcon}>🎁</Text>
+            </View>
+            <View style={styles.securityInfo}>
+              <Text style={styles.securityTitle}>Credit Points</Text>
+              <Text style={styles.securityDescription}>
+                View your credit points and recent collections
+              </Text>
+            </View>
+            <Text style={styles.arrowIcon}>›</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Security Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Security</Text>
@@ -218,6 +242,8 @@ const SettingsScreen = () => {
       <ResidentEditProfileModal
         visible={editProfileModalVisible}
         onClose={handleProfileUpdate}
+        user={user}
+        onUpdate={handleProfileUpdate}
       />
 
       <ChangePasswordModal

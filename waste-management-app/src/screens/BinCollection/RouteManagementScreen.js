@@ -30,7 +30,10 @@ const RouteManagementScreen = ({ navigation }) => {
   // Get today's date in YYYY-MM-DD format
   const getTodayDate = () => {
     const today = new Date();
-    return today.toISOString().split('T')[0];
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   // Load today's assigned route
@@ -54,7 +57,13 @@ const RouteManagementScreen = ({ navigation }) => {
     if (routes && routes.length > 0) {
       const today = getTodayDate();
       const route = routes.find(r => {
-        const routeDate = new Date(r.scheduledDate).toISOString().split('T')[0];
+        // Get route date in local timezone
+        const routeDateObj = new Date(r.scheduledDate);
+        const routeYear = routeDateObj.getFullYear();
+        const routeMonth = String(routeDateObj.getMonth() + 1).padStart(2, '0');
+        const routeDay = String(routeDateObj.getDate()).padStart(2, '0');
+        const routeDate = `${routeYear}-${routeMonth}-${routeDay}`;
+        
         return routeDate === today && (r.status === 'scheduled' || r.status === 'in-progress');
       });
       setTodayRoute(route || null);

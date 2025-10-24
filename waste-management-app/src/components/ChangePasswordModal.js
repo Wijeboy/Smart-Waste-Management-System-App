@@ -122,6 +122,7 @@ const ChangePasswordModal = ({ visible, onClose }) => {
       animationType="slide"
       transparent={true}
       onRequestClose={handleCancel}
+      statusBarTranslucent={true}
     >
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
@@ -274,11 +275,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContainer: {
-    width: '90%',
+    width: '100%',
     maxWidth: 500,
-    maxHeight: '80%',
     backgroundColor: COLORS.lightCard,
     borderRadius: 16,
     shadowColor: '#000',
@@ -286,9 +287,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    maxHeight: '90%',
   },
   scrollView: {
-    flex: 1,
+    maxHeight: '100%',
   },
   scrollContent: {
     padding: 24,

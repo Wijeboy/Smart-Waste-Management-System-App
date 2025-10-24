@@ -6,10 +6,18 @@ const {
   getUserById,
   updateUserRole,
   suspendUser,
-  deleteUser
+  deleteUser,
+  getUserCreditPoints,
+  redeemCreditPoints,
+  getRecentCollections
 } = require('../controllers/userController');
 
-// All routes require authentication and admin role
+// Credit Points routes (require authentication, accessible by resident and admin)
+router.get('/:id/credit-points', protect, getUserCreditPoints);
+router.post('/:id/redeem-points', protect, redeemCreditPoints);
+router.get('/:id/recent-collections', protect, getRecentCollections);
+
+// All routes below require authentication and admin role
 router.use(protect);
 router.use(authorize('admin'));
 

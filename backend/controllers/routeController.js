@@ -566,8 +566,9 @@ exports.collectBin = async (req, res) => {
       status: 'active'
     };
 
-    // If bin has an owner (resident bin), update latestCollection
-    if (binDetails.owner) {
+    // If bin has an owner (resident bin), update latestCollection and award points
+    let pointsEarned = 0;
+    if (binDetails.owner && actualWeight && actualWeight > 0) {
       collectionUpdate.latestCollection = {
         collectedAt: Date.now(),
         collectedBy: req.user.id,
@@ -576,6 +577,22 @@ exports.collectBin = async (req, res) => {
         fillLevelAtCollection: binDetails.fillLevel
       };
       console.log(`✅ Updating resident bin ${binDetails.binId} with collection details`);
+      
+      // Award credit points to bin owner
+      // Rate: 1kg = 10 points, Recyclable = 15 points per kg
+      try {
+        const User = require('../models/User');
+        const binOwner = await User.findById(binDetails.owner);
+        
+        if (binOwner) {
+          const isRecyclable = binDetails.binType === 'Recyclable';
+          pointsEarned = await binOwner.earnPoints(actualWeight, isRecyclable);
+          console.log(`🎁 Awarded ${pointsEarned} points to resident ${binOwner.firstName} ${binOwner.lastName} (${actualWeight}kg, ${isRecyclable ? 'Recyclable' : 'Regular'})`);
+        }
+      } catch (pointsError) {
+        console.error('Error awarding points:', pointsError);
+        // Don't fail the collection if points award fails
+      }
     }
     
     // Update the actual bin's fillLevel and lastCollection
@@ -588,7 +605,8 @@ exports.collectBin = async (req, res) => {
       message: 'Bin collected successfully',
       data: { 
         route,
-        collectedWeight: actualWeight || 0
+        collectedWeight: actualWeight || 0,
+        pointsEarned: pointsEarned
       }
     });
   } catch (error) {

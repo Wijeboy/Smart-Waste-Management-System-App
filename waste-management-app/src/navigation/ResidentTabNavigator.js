@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, FONTS } from '../constants/theme';
 
 // Import screens
@@ -16,6 +16,21 @@ import SettingsScreen from '../screens/Resident/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 
+// Custom Tab Icon Component
+const TabIcon = ({ focused, icon, focusedIcon }) => (
+  <View style={[
+    styles.iconContainer,
+    focused && styles.iconContainerFocused
+  ]}>
+    <Text style={[
+      styles.icon,
+      focused && styles.iconFocused
+    ]}>
+      {focused ? focusedIcon : icon}
+    </Text>
+  </View>
+);
+
 const ResidentTabNavigator = () => {
   return (
     <Tab.Navigator
@@ -25,15 +40,24 @@ const ResidentTabNavigator = () => {
         tabBarInactiveTintColor: COLORS.iconGray,
         tabBarStyle: {
           backgroundColor: COLORS.lightCard,
-          borderTopWidth: 1,
-          borderTopColor: COLORS.progressBarBg,
+          borderTopWidth: 2,
+          borderTopColor: COLORS.primaryDarkTeal + '20',
           paddingBottom: 8,
           paddingTop: 8,
-          height: 60,
+          height: 65,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 10,
         },
         tabBarLabelStyle: {
           fontSize: FONTS.size.small,
-          fontWeight: FONTS.weight.medium,
+          fontWeight: FONTS.weight.semiBold,
+          marginTop: 4,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 4,
         },
       }}
     >
@@ -42,9 +66,7 @@ const ResidentTabNavigator = () => {
         component={ResidentHomeScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 24 }}>
-              {focused ? '🏠' : '🏡'}
-            </Text>
+            <TabIcon focused={focused} icon="🏡" focusedIcon="🏠" />
           ),
         }}
       />
@@ -53,9 +75,7 @@ const ResidentTabNavigator = () => {
         component={CollectionHistoryScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 24 }}>
-              {focused ? '📋' : '📄'}
-            </Text>
+            <TabIcon focused={focused} icon="📄" focusedIcon="📋" />
           ),
         }}
       />
@@ -64,9 +84,7 @@ const ResidentTabNavigator = () => {
         component={PaymentScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 24 }}>
-              {focused ? '💳' : '💰'}
-            </Text>
+            <TabIcon focused={focused} icon="💰" focusedIcon="💳" />
           ),
         }}
       />
@@ -75,14 +93,32 @@ const ResidentTabNavigator = () => {
         component={SettingsScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 24 }}>
-              {focused ? '⚙️' : '🔧'}
-            </Text>
+            <TabIcon focused={focused} icon="🔧" focusedIcon="⚙️" />
           ),
         }}
       />
     </Tab.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 48,
+    height: 32,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  iconContainerFocused: {
+    backgroundColor: COLORS.primaryDarkTeal + '15',
+  },
+  icon: {
+    fontSize: 26,
+  },
+  iconFocused: {
+    fontSize: 28,
+  },
+});
 
 export default ResidentTabNavigator;

@@ -43,6 +43,8 @@ import ActiveRouteScreen from '../screens/Collector/ActiveRouteScreen';
 
 // Import Resident screens
 import ResidentTabNavigator from './ResidentTabNavigator';
+import CreditPointsScreen from '../screens/Resident/CreditPointsScreen';
+import ApplyPointsScreen from '../screens/Resident/ApplyPointsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -283,6 +285,22 @@ const AppNavigator = () => {
         component={ResidentTabNavigator}
         options={{
           title: 'My Dashboard',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="CreditPoints"
+        component={CreditPointsScreen}
+        options={{
+          title: 'Credit Points',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="ApplyPoints"
+        component={ApplyPointsScreen}
+        options={{
+          title: 'Apply Points',
           headerShown: false,
         }}
       />

@@ -118,6 +118,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Function to refresh user data without making API call
+  // Useful when the API call was already made by a component
+  const refreshUserData = async (userData) => {
+    try {
+      setUser(userData);
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      return { success: true };
+    } catch (err) {
+      console.error('Error refreshing user data:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
   const adminLogin = async () => {
     try {
       setLoading(true);
@@ -210,6 +223,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUserProfile,
+    refreshUserData,
     adminLogin,
     changePassword,
     updateAccountSettings,

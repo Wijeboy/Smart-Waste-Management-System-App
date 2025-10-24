@@ -73,6 +73,16 @@ class ApiService {
       });
 
       console.log('API Response Status:', response.status);
+      console.log('API Response Content-Type:', response.headers.get('content-type'));
+      
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response received:', text.substring(0, 200));
+        throw new Error(`Server returned ${response.status}: Expected JSON but got ${contentType || 'unknown content type'}`);
+      }
+      
       const data = await response.json();
       console.log('API Response Data:', data);
 
@@ -435,6 +445,26 @@ class ApiService {
   async getZoneAnalytics() {
     return this.request('/admin/analytics/zone-analytics', {
       method: 'GET',
+    });
+  }
+
+  // Credit Points endpoints
+  async getUserCreditPoints(userId) {
+    return this.request(`/users/${userId}/credit-points`, {
+      method: 'GET',
+    });
+  }
+
+  async getRecentCollections(userId, limit = 10) {
+    return this.request(`/users/${userId}/recent-collections?limit=${limit}`, {
+      method: 'GET',
+    });
+  }
+
+  async redeemCreditPoints(userId, pointsToRedeem) {
+    return this.request(`/users/${userId}/redeem-points`, {
+      method: 'POST',
+      body: JSON.stringify({ pointsToRedeem }),
     });
   }
 }

@@ -230,3 +230,166 @@ exports.deleteUser = async (req, res) => {
     });
   }
 };
+
+// @desc    Get user credit points
+// @route   GET /api/users/:id/credit-points
+// @access  Private (Resident or Admin)
+exports.getUserCreditPoints = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Check if user is requesting their own data or is admin
+    if (req.user.id !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to access this resource'
+      });
+    }
+    
+    const user = await User.findById(userId).select('creditPoints firstName lastName');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        creditPoints: user.creditPoints || 0,
+        userName: `${user.firstName} ${user.lastName}`
+      }
+    });
+  } catch (error) {
+    console.error('Get credit points error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching credit points',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Redeem credit points
+// @route   POST /api/users/:id/redeem-points
+// @access  Private (Resident)
+exports.redeemCreditPoints = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { pointsToRedeem } = req.body;
+    
+    // Check if user is requesting for themselves
+    if (req.user.id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to redeem points for another user'
+      });
+    }
+    
+    if (!pointsToRedeem || pointsToRedeem <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid points amount'
+      });
+    }
+    
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Use the model method to redeem points
+    const result = await user.redeemPoints(pointsToRedeem);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Points redeemed successfully',
+      data: {
+        pointsRedeemed: result.pointsRedeemed,
+        discount: result.discount,
+        remainingPoints: user.creditPoints
+      }
+    });
+  } catch (error) {
+    console.error('Redeem points error:', error);
+    
+    // Handle specific error messages
+    if (error.message.includes('Minimum') || error.message.includes('Insufficient')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Error redeeming points',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get recent collections with points for a resident
+// @route   GET /api/users/:id/recent-collections
+// @access  Private (Resident or Admin)
+exports.getRecentCollections = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { limit = 10 } = req.query;
+    
+    // Check if user is requesting their own data or is admin
+    if (req.user.id !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to access this resource'
+      });
+    }
+    
+    const Bin = require('../models/Bin');
+    
+    // Get all bins owned by this resident with collection history
+    const bins = await Bin.find({ 
+      owner: userId,
+      'latestCollection.collectedAt': { $exists: true }
+    })
+      .select('binType latestCollection')
+      .sort({ 'latestCollection.collectedAt': -1 })
+      .limit(parseInt(limit));
+    
+    // Format the response
+    const collections = bins.map(bin => {
+      const weight = bin.latestCollection.weight || 0;
+      const isRecyclable = bin.binType === 'Recyclable';
+      const pointsEarned = Math.floor(weight * (isRecyclable ? 15 : 10));
+      
+      return {
+        binType: bin.binType,
+        collectedAt: bin.latestCollection.collectedAt,
+        weight: weight,
+        pointsEarned: pointsEarned,
+        collectorName: bin.latestCollection.collectorName
+      };
+    });
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        collections,
+        total: collections.length
+      }
+    });
+  } catch (error) {
+    console.error('Get recent collections error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching recent collections',
+      error: error.message
+    });
+  }
+};

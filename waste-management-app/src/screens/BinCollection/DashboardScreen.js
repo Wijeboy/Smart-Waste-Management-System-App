@@ -93,13 +93,36 @@ const DashboardScreen = ({ navigation }) => {
   // Check for today's route
   useEffect(() => {
     if (routes && routes.length > 0) {
-      const today = new Date().toISOString().split('T')[0];
+      // Get today's date in local timezone (YYYY-MM-DD format)
+      const todayLocal = new Date();
+      const todayYear = todayLocal.getFullYear();
+      const todayMonth = String(todayLocal.getMonth() + 1).padStart(2, '0');
+      const todayDay = String(todayLocal.getDate()).padStart(2, '0');
+      const today = `${todayYear}-${todayMonth}-${todayDay}`;
+      
+      console.log('🔍 Looking for today\'s route:', today);
+      console.log('📋 Available routes:', routes.length);
+      
       const route = routes.find(r => {
-        const routeDate = new Date(r.scheduledDate).toISOString().split('T')[0];
-        return routeDate === today && (r.status === 'scheduled' || r.status === 'in-progress');
+        // Get route date in local timezone
+        const routeDateObj = new Date(r.scheduledDate);
+        const routeYear = routeDateObj.getFullYear();
+        const routeMonth = String(routeDateObj.getMonth() + 1).padStart(2, '0');
+        const routeDay = String(routeDateObj.getDate()).padStart(2, '0');
+        const routeDate = `${routeYear}-${routeMonth}-${routeDay}`;
+        
+        const isToday = routeDate === today;
+        const statusMatch = r.status === 'scheduled' || r.status === 'in-progress';
+        
+        console.log(`   - ${r.routeName}: date=${routeDate}, isToday=${isToday}, status=${r.status}, match=${isToday && statusMatch}`);
+        
+        return isToday && statusMatch;
       });
+      
+      console.log('✅ Today\'s route:', route ? route.routeName : 'None found');
       setTodayRoute(route || null);
     } else {
+      console.log('⚠️ No routes available');
       setTodayRoute(null);
     }
   }, [routes]);
