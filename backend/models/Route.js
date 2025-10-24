@@ -65,6 +65,40 @@ const routeSchema = new mongoose.Schema({
     type: String,
     maxlength: 500
   },
+  // Analytics fields
+  binsCollected: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  wasteCollected: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  recyclableWaste: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  efficiency: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  satisfaction: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 5
+  },
+  startTime: {
+    type: Date
+  },
+  endTime: {
+    type: Date
+  },
   createdAt: {
     type: Date,
     default: Date.now

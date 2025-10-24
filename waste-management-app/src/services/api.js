@@ -346,6 +346,40 @@ class ApiService {
       method: 'PUT',
     });
   }
+
+  // ========================================
+  // Analytics & Reporting
+  // ========================================
+
+  async getAnalytics() {
+    return this.request('/admin/analytics', {
+      method: 'GET',
+    });
+  }
+
+  async getKPIs() {
+    return this.request('/admin/analytics/kpis', {
+      method: 'GET',
+    });
+  }
+
+  async getCollectionTrends(period = 'weekly') {
+    return this.request(`/admin/analytics/trends?period=${period}`, {
+      method: 'GET',
+    });
+  }
+
+  async getWasteDistribution() {
+    return this.request('/admin/analytics/waste-distribution', {
+      method: 'GET',
+    });
+  }
+
+  async getRoutePerformance() {
+    return this.request('/admin/analytics/route-performance', {
+      method: 'GET',
+    });
+  }
 }
 
 export default new ApiService();

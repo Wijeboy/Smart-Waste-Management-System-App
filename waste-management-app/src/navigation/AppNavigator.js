@@ -17,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import AnalyticsDashboard from '../screens/Analytics/AnalyticsDashboard';
 import AnalyticsReportsScreen from '../screens/Analytics/ReportsScreen';
 import KPIsScreen from '../screens/Analytics/KPIsScreen';
+import RealTimeAnalyticsDashboard from '../screens/Analytics/RealTimeAnalyticsDashboard';
 
 // Import other analytics-related screens
 import DataCollectionScreen from '../screens/DataCollectionScreen';
@@ -114,10 +115,10 @@ const AppNavigator = () => {
         }}
       />
       <Stack.Screen
-        name="AnalyticsDashboard"
-        component={AnalyticsDashboard}
+        name="RealTimeAnalytics"
+        component={RealTimeAnalyticsDashboard}
         options={{
-          title: 'Analytics Dashboard',
+          title: 'Real-Time Analytics',
           headerShown: false,
         }}
       />

@@ -30,6 +30,7 @@ app.use('/api/bins', require('./routes/bins'));
 app.use('/api/admin/users', require('./routes/users'));
 app.use('/api/routes', require('./routes/routes'));
 app.use('/api/admin/routes', require('./routes/routes'));
+app.use('/api/admin/analytics', require('./routes/analytics'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
