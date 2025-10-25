@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1761375452132" clover="3.2.0">
-  <project timestamp="1761375452132" name="All files">
-    <metrics statements="289" coveredstatements="157" conditionals="140" coveredconditionals="62" methods="66" coveredmethods="32" elements="495" coveredelements="251" complexity="0" loc="289" ncloc="289" packages="2" files="4" classes="4"/>
+<coverage generated="1761375588058" clover="3.2.0">
+  <project timestamp="1761375588058" name="All files">
+    <metrics statements="289" coveredstatements="167" conditionals="140" coveredconditionals="68" methods="66" coveredmethods="43" elements="495" coveredelements="278" complexity="0" loc="289" ncloc="289" packages="2" files="4" classes="4"/>
     <package name="controllers">
       <metrics statements="211" coveredstatements="123" conditionals="121" coveredconditionals="62" methods="45" coveredmethods="32"/>
       <file name="analyticsController.js" path="/Users/pramodwijenayake/Desktop/Smart-Waste-Management-System-App/backend/controllers/analyticsController.js">
@@ -220,7 +220,7 @@
       </file>
     </package>
     <package name="models">
-      <metrics statements="78" coveredstatements="34" conditionals="19" coveredconditionals="0" methods="21" coveredmethods="0"/>
+      <metrics statements="78" coveredstatements="44" conditionals="19" coveredconditionals="6" methods="21" coveredmethods="11"/>
       <file name="Bin.js" path="/Users/pramodwijenayake/Desktop/Smart-Waste-Management-System-App/backend/models/Bin.js">
         <metrics statements="19" coveredstatements="8" conditionals="4" coveredconditionals="0" methods="3" coveredmethods="0"/>
         <line num="1" count="1" type="stmt"/>
@@ -244,32 +244,32 @@
         <line num="146" count="1" type="stmt"/>
       </file>
       <file name="Route.js" path="/Users/pramodwijenayake/Desktop/Smart-Waste-Management-System-App/backend/models/Route.js">
-        <metrics statements="25" coveredstatements="15" conditionals="6" coveredconditionals="0" methods="11" coveredmethods="0"/>
-        <line num="1" count="1" type="stmt"/>
-        <line num="3" count="1" type="stmt"/>
-        <line num="153" count="1" type="stmt"/>
-        <line num="154" count="0" type="stmt"/>
-        <line num="155" count="0" type="stmt"/>
-        <line num="159" count="1" type="stmt"/>
-        <line num="160" count="0" type="stmt"/>
-        <line num="164" count="1" type="stmt"/>
-        <line num="165" count="0" type="stmt"/>
-        <line num="169" count="1" type="stmt"/>
-        <line num="170" count="0" type="stmt"/>
-        <line num="174" count="1" type="stmt"/>
-        <line num="175" count="0" type="stmt"/>
-        <line num="179" count="1" type="stmt"/>
-        <line num="180" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="181" count="0" type="stmt"/>
-        <line num="185" count="1" type="stmt"/>
-        <line num="186" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="187" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="191" count="1" type="stmt"/>
-        <line num="192" count="1" type="stmt"/>
-        <line num="195" count="1" type="stmt"/>
-        <line num="196" count="1" type="stmt"/>
-        <line num="197" count="1" type="stmt"/>
-        <line num="199" count="1" type="stmt"/>
+        <metrics statements="25" coveredstatements="25" conditionals="6" coveredconditionals="6" methods="11" coveredmethods="11"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="3" count="2" type="stmt"/>
+        <line num="153" count="2" type="stmt"/>
+        <line num="154" count="30" type="stmt"/>
+        <line num="155" count="30" type="stmt"/>
+        <line num="159" count="2" type="stmt"/>
+        <line num="160" count="5" type="stmt"/>
+        <line num="164" count="2" type="stmt"/>
+        <line num="165" count="13" type="stmt"/>
+        <line num="169" count="2" type="stmt"/>
+        <line num="170" count="5" type="stmt"/>
+        <line num="174" count="2" type="stmt"/>
+        <line num="175" count="5" type="stmt"/>
+        <line num="179" count="2" type="stmt"/>
+        <line num="180" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="181" count="3" type="stmt"/>
+        <line num="185" count="2" type="stmt"/>
+        <line num="186" count="5" type="cond" truecount="2" falsecount="0"/>
+        <line num="187" count="8" type="cond" truecount="2" falsecount="0"/>
+        <line num="191" count="2" type="stmt"/>
+        <line num="192" count="2" type="stmt"/>
+        <line num="195" count="2" type="stmt"/>
+        <line num="196" count="2" type="stmt"/>
+        <line num="197" count="2" type="stmt"/>
+        <line num="199" count="2" type="stmt"/>
       </file>
       <file name="User.js" path="/Users/pramodwijenayake/Desktop/Smart-Waste-Management-System-App/backend/models/User.js">
         <metrics statements="34" coveredstatements="11" conditionals="9" coveredconditionals="0" methods="7" coveredmethods="0"/>
