@@ -1,6 +1,5 @@
 /**
- * Analytics Simple Tests
- * Tests analytics controller functions with minimal mocking
+ * Analytics  Tests
  */
 
 const {
