@@ -1,11 +1,14 @@
 /**
  * RouteContext
  * Provides route data and collection management functions across the app
- * Now using real bins from BinsContext
+ * Integrates with backend API for route management
+ * Also provides bin-based collection tracking for backward compatibility
  */
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useBins } from './BinsContext';
+import { useAuth } from './AuthContext';
+import apiService from '../services/api';
 import { MOCK_ROUTE_INFO } from '../api/mockData';
 
 /**
@@ -22,14 +25,22 @@ const RouteContext = createContext();
  */
 export const RouteProvider = ({ children }) => {
   // Get real bins from BinsContext
-  const { bins, updateBin, loading } = useBins();
+  const { bins, updateBin, loading: binsLoading } = useBins();
+  const { user } = useAuth();
+  
+  // Route management state
+  const [routes, setRoutes] = useState([]);
+  const [selectedRoute, setSelectedRoute] = useState(null);
+  const [routeStats, setRouteStats] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   
   // Track current day for auto-reset
   const [lastResetDate, setLastResetDate] = useState(
     () => new Date().toDateString()
   );
   
-  // State for route information
+  // State for route information (backward compatibility)
   const [routeInfo] = useState(MOCK_ROUTE_INFO);
   
   // Transform bins into stops format
@@ -375,11 +386,244 @@ export const RouteProvider = ({ children }) => {
     }));
   };
 
+  // ========================================
+  // NEW: Route Management API Methods
+  // ========================================
+
+  /**
+   * Fetch all routes (Admin)
+   */
+  const fetchRoutes = async (filters = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiService.getAllRoutes(filters);
+      setRoutes(response.data.routes);
+      return { success: true, data: response.data };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to fetch routes';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Fetch my routes (Collector)
+   */
+  const fetchMyRoutes = async (filters = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiService.getMyRoutes(filters);
+      setRoutes(response.data.routes);
+      return { success: true, data: response.data };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to fetch routes';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Create new route (Admin)
+   */
+  const createRoute = async (routeData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiService.createRoute(routeData);
+      // Refresh routes list
+      await fetchRoutes();
+      return { success: true, data: response.data };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to create route';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Update route (Admin)
+   */
+  const updateRoute = async (id, updates) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiService.updateRoute(id, updates);
+      // Refresh routes list
+      await fetchRoutes();
+      return { success: true, data: response.data };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to update route';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Delete route (Admin)
+   */
+  const deleteRoute = async (id) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await apiService.deleteRoute(id);
+      // Refresh routes list
+      await fetchRoutes();
+      return { success: true };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to delete route';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Assign collector to route (Admin)
+   */
+  const assignCollector = async (routeId, collectorId) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiService.assignCollector(routeId, collectorId);
+      // Refresh routes list
+      await fetchRoutes();
+      return { success: true, data: response.data };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to assign collector';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Start route (Collector)
+   */
+  /**
+   * Start route (Collector)
+   * @param {string} routeId - The route ID to start
+   * @param {Object} preRouteChecklist - The completed checklist data
+   */
+  const startRoute = async (routeId, preRouteChecklist) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiService.startRoute(routeId, preRouteChecklist);
+      setSelectedRoute(response.data.route);
+      // Refresh my routes
+      if (user?.role === 'collector') {
+        await fetchMyRoutes();
+      }
+      return { success: true, data: response.data };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to start route';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Collect bin (Collector)
+   */
+  const collectBin = async (routeId, binId, actualWeight) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiService.collectBin(routeId, binId, actualWeight);
+      setSelectedRoute(response.data.route);
+      return { success: true, data: response.data };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to collect bin';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Skip bin (Collector)
+   */
+  const skipBin = async (routeId, binId, reason) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiService.skipBin(routeId, binId, reason);
+      setSelectedRoute(response.data.route);
+      return { success: true, data: response.data };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to skip bin';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Complete route (Collector)
+   */
+  const completeRoute = async (routeId) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiService.completeRoute(routeId);
+      setSelectedRoute(null);
+      // Refresh my routes
+      if (user?.role === 'collector') {
+        await fetchMyRoutes();
+      }
+      return { success: true, data: response.data };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to complete route';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Fetch route statistics (Admin)
+   */
+  const fetchRouteStats = async () => {
+    try {
+      const response = await apiService.getRouteStats();
+      setRouteStats(response.data.stats);
+      return { success: true, data: response.data.stats };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to fetch route stats';
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  /**
+   * Select a route
+   */
+  const selectRoute = (route) => {
+    setSelectedRoute(route);
+  };
+
   // Calculate dynamic metrics
   const impactMetrics = getImpactMetrics();
   const collectionsByType = getCollectionsByType();
 
   const value = {
+    // Existing bin-based functionality
     stops,
     routeInfo,
     impactMetrics,
@@ -393,6 +637,25 @@ export const RouteProvider = ({ children }) => {
     getCompletedStops,
     getIssueStops,
     resetAllBins,
+    
+    // New route management functionality
+    routes,
+    selectedRoute,
+    routeStats,
+    loading: loading || binsLoading,
+    error,
+    fetchRoutes,
+    fetchMyRoutes,
+    createRoute,
+    updateRoute,
+    deleteRoute,
+    assignCollector,
+    startRoute,
+    collectBin,
+    skipBin,
+    completeRoute,
+    fetchRouteStats,
+    selectRoute,
   };
 
   return <RouteContext.Provider value={value}>{children}</RouteContext.Provider>;

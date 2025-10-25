@@ -31,8 +31,13 @@ exports.register = async (req, res) => {
       password,
       nic,
       dateOfBirth,
-      phoneNo
+      phoneNo,
+      role
     } = req.body;
+
+    // Validate role if provided
+    const allowedRoles = ['collector', 'resident'];
+    const userRole = role && allowedRoles.includes(role) ? role : 'collector';
 
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -63,7 +68,8 @@ exports.register = async (req, res) => {
       password,
       nic,
       dateOfBirth,
-      phoneNo
+      phoneNo,
+      role: userRole
     });
 
     // Generate token
@@ -277,32 +283,53 @@ exports.adminLogin = async (req, res) => {
       });
     }
 
-    // Create a mock admin user object for token generation
-    const adminUser = {
-      id: 'admin-' + Date.now(),
-      firstName: 'Admin',
-      lastName: 'User',
-      username: 'admin',
-      email: 'admin@wastesystem.com',
-      role: 'admin'
-    };
+    // Try to find existing admin user
+    let adminUser = await User.findOne({ username: ADMIN_USERNAME }).select('+password');
 
-    // Generate token
-    const token = jwt.sign(
-      { 
-        id: adminUser.id,
+    // If admin doesn't exist, create it
+    if (!adminUser) {
+      adminUser = await User.create({
+        firstName: 'Admin',
+        lastName: 'User',
+        username: ADMIN_USERNAME,
+        email: 'admin@wastesystem.com',
+        password: ADMIN_PASSWORD,
+        nic: '999999999V',
+        dateOfBirth: new Date('1990-01-01'),
+        phoneNo: '0771234567',
         role: 'admin',
-        username: adminUser.username
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE }
-    );
+        isActive: true,
+        accountStatus: 'active'
+      });
+    } else {
+      // Verify password for existing admin
+      const isPasswordMatch = await adminUser.comparePassword(ADMIN_PASSWORD);
+      if (!isPasswordMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid admin credentials'
+        });
+      }
+    }
+
+    // Update last login
+    await adminUser.updateLastLogin();
+
+    // Generate token with real MongoDB ObjectId
+    const token = generateToken(adminUser._id);
 
     res.status(200).json({
       success: true,
       message: 'Admin login successful',
       data: {
-        user: adminUser,
+        user: {
+          id: adminUser._id,
+          firstName: adminUser.firstName,
+          lastName: adminUser.lastName,
+          username: adminUser.username,
+          email: adminUser.email,
+          role: adminUser.role
+        },
         token
       }
     });
@@ -311,6 +338,177 @@ exports.adminLogin = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error logging in as admin',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Change password
+// @route   POST /api/auth/change-password
+// @access  Private
+exports.changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+    
+    // Validation
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required'
+      });
+    }
+    
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New passwords do not match'
+      });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+    
+    // Get user with password
+    const user = await User.findById(req.user.id).select('+password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Verify old password
+    const isMatch = await user.comparePassword(oldPassword);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+    
+    // Update password
+    user.password = newPassword;
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error changing password',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Update account settings
+// @route   PUT /api/auth/account-settings
+// @access  Private
+exports.updateAccountSettings = async (req, res) => {
+  try {
+    const { email, username, address, profileImage } = req.body;
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Check for uniqueness if email or username changed
+    if (email && email !== user.email) {
+      const emailExists = await User.findOne({ email });
+      if (emailExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already in use'
+        });
+      }
+      user.email = email;
+    }
+    
+    if (username && username !== user.username) {
+      const usernameExists = await User.findOne({ username: username.toLowerCase() });
+      if (usernameExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username already taken'
+        });
+      }
+      user.username = username;
+    }
+    
+    // Update other fields
+    if (address !== undefined) user.address = address;
+    if (profileImage !== undefined) user.profileImage = profileImage;
+    
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Account settings updated successfully',
+      data: {
+        user: {
+          id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          username: user.username,
+          email: user.email,
+          nic: user.nic,
+          dateOfBirth: user.dateOfBirth,
+          phoneNo: user.phoneNo,
+          role: user.role,
+          address: user.address,
+          profileImage: user.profileImage
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Update account settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating account settings',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Deactivate account
+// @route   PUT /api/auth/deactivate
+// @access  Private
+exports.deactivateAccount = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    user.isActive = false;
+    user.accountStatus = 'suspended';
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Account deactivated successfully'
+    });
+  } catch (error) {
+    console.error('Deactivate account error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deactivating account',
       error: error.message
     });
   }

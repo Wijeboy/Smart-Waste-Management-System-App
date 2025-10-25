@@ -67,6 +67,9 @@ const LoginScreen = ({ navigation }) => {
 
     if (!result.success) {
       Alert.alert('Admin Login Failed', result.error);
+    } else {
+      // Admin logged in successfully, navigation will happen in RootNavigator
+      // but we can add a callback to navigate to AdminDashboard
     }
   };
 

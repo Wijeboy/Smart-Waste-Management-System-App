@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       console.error('Auth check error:', err);
+      // Clear invalid token and logout
       await logout();
     } finally {
       setLoading(false);
@@ -74,13 +75,8 @@ export const AuthProvider = ({ children }) => {
       
       const response = await apiService.register(userData);
       
-      const { user: newUser, token } = response.data;
-      
-      await AsyncStorage.setItem('authToken', token);
-      await AsyncStorage.setItem('user', JSON.stringify(newUser));
-      
-      apiService.setToken(token);
-      setUser(newUser);
+      // Don't auto-login after registration
+      // Just return success
       
       return { success: true };
     } catch (err) {
@@ -122,6 +118,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Function to refresh user data without making API call
+  // Useful when the API call was already made by a component
+  const refreshUserData = async (userData) => {
+    try {
+      setUser(userData);
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      return { success: true };
+    } catch (err) {
+      console.error('Error refreshing user data:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
   const adminLogin = async () => {
     try {
       setLoading(true);
@@ -150,6 +159,62 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const changePassword = async (oldPassword, newPassword, confirmPassword) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await apiService.changePassword(oldPassword, newPassword, confirmPassword);
+      
+      return { success: true, message: response.message };
+    } catch (err) {
+      const errorMessage = err.message || 'Password change failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateAccountSettings = async (settingsData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await apiService.updateAccountSettings(settingsData);
+      setUser(response.data.user);
+      await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
+      
+      return { success: true, message: response.message };
+    } catch (err) {
+      const errorMessage = err.message || 'Account settings update failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deactivateAccount = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      await apiService.deactivateAccount();
+      
+      // Logout after deactivation
+      await logout();
+      
+      return { success: true, message: 'Account deactivated successfully' };
+    } catch (err) {
+      const errorMessage = err.message || 'Account deactivation failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -158,7 +223,11 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUserProfile,
+    refreshUserData,
     adminLogin,
+    changePassword,
+    updateAccountSettings,
+    deactivateAccount,
     isAuthenticated: !!user,
   };
 

@@ -12,7 +12,11 @@ const {
   getBinsByZone,
   getBinsByType,
   getBinsByStatus,
-  getBinStats
+  getBinStats,
+  createResidentBin,
+  getResidentBins,
+  getResidentBinSchedule,
+  getResidentCollectionHistory
 } = require('../controllers/binController');
 const { protect } = require('../middleware/auth');
 
@@ -24,8 +28,8 @@ const binValidation = [
     .isIn(['General Waste', 'Recyclable', 'Organic', 'Hazardous'])
     .withMessage('Invalid bin type'),
   body('capacity').isNumeric().withMessage('Capacity must be a number'),
-  body('coordinates.lat').isNumeric().withMessage('Latitude must be a number'),
-  body('coordinates.lng').isNumeric().withMessage('Longitude must be a number')
+  body('coordinates.lat').optional().isNumeric().withMessage('Latitude must be a number'),
+  body('coordinates.lng').optional().isNumeric().withMessage('Longitude must be a number')
 ];
 
 // All routes require authentication
@@ -38,6 +42,12 @@ router.get('/stats', getBinStats);
 router.get('/zone/:zone', getBinsByZone);
 router.get('/type/:type', getBinsByType);
 router.get('/status/:status', getBinsByStatus);
+
+// Resident-specific routes (before main CRUD to avoid conflicts)
+router.post('/resident', binValidation, createResidentBin);
+router.get('/resident/my-bins', getResidentBins);
+router.get('/resident/collection-history', getResidentCollectionHistory);
+router.get('/resident/:id/schedule', getResidentBinSchedule);
 
 // Main CRUD routes
 router.route('/')

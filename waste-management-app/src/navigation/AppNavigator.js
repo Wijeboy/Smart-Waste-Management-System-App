@@ -11,11 +11,14 @@ import ScanBinScreen from '../screens/BinCollection/ScanBinScreen';
 import ReportsScreen from '../screens/BinCollection/ReportsScreen';
 import ProfileScreen from '../screens/BinCollection/ProfileScreen';
 import { COLORS, FONTS } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
 
 // Import Analytics screens
 import AnalyticsDashboard from '../screens/Analytics/AnalyticsDashboard';
 import AnalyticsReportsScreen from '../screens/Analytics/ReportsScreen';
 import KPIsScreen from '../screens/Analytics/KPIsScreen';
+import RealTimeAnalyticsDashboard from '../screens/Analytics/RealTimeAnalyticsDashboard';
+import EnhancedAnalyticsDashboard from '../screens/Analytics/EnhancedAnalyticsDashboard';
 
 // Import other analytics-related screens
 import DataCollectionScreen from '../screens/DataCollectionScreen';
@@ -23,6 +26,28 @@ import DataProcessingScreen from '../screens/DataProcessingScreen';
 import AnalysisScreen from '../screens/AnalysisScreen';
 import PerformanceMetricsScreen from '../screens/PerformanceMetricsScreen';
 import AnalyticsReportScreen from '../screens/ReportsScreen';
+
+// Import Admin screens
+import UserManagementScreen from '../screens/Admin/UserManagementScreen';
+import UserDetailScreen from '../screens/Admin/UserDetailScreen';
+import AdminRouteManagementScreen from '../screens/Admin/RouteManagementScreen';
+import RouteDetailScreen from '../screens/Admin/RouteDetailScreen';
+import CreateRouteScreen from '../screens/Admin/CreateRouteScreen';
+import EditRouteScreen from '../screens/Admin/EditRouteScreen';
+import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
+import BinManagementScreen from '../screens/Admin/BinManagementScreen';
+
+// Import Collector screens
+import MyRoutesScreen from '../screens/Collector/MyRoutesScreen';
+import ActiveRouteScreen from '../screens/Collector/ActiveRouteScreen';
+
+// Import Resident screens
+import ResidentTabNavigator from './ResidentTabNavigator';
+import CreditPointsScreen from '../screens/Resident/CreditPointsScreen';
+import ApplyPointsScreen from '../screens/Resident/ApplyPointsScreen';
+import PaymentDetailsScreen from '../screens/Resident/PaymentDetailsScreen';
+import PaymentReviewScreen from '../screens/Resident/PaymentReviewScreen';
+import PaymentSuccessScreen from '../screens/Resident/PaymentSuccessScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -32,9 +57,23 @@ const Stack = createNativeStackNavigator();
  * @returns {JSX.Element} The navigation stack
  */
 const AppNavigator = () => {
+  const { user } = useAuth();
+  
+  // Determine initial route based on user role
+  const getInitialRoute = () => {
+    if (user?.role === 'admin') {
+      return 'AdminDashboard';
+    } else if (user?.role === 'collector') {
+      return 'Dashboard'; // Collectors go to Dashboard with bottom nav
+    } else if (user?.role === 'resident') {
+      return 'ResidentDashboard'; // Residents go to Resident Dashboard
+    }
+    return 'Dashboard';
+  };
+
   return (
     <Stack.Navigator
-      initialRouteName="Dashboard"
+      initialRouteName={getInitialRoute()}
       screenOptions={{
         headerStyle: {
           backgroundColor: COLORS.primaryDarkTeal,
@@ -87,10 +126,10 @@ const AppNavigator = () => {
         }}
       />
       <Stack.Screen
-        name="AnalyticsDashboard"
-        component={AnalyticsDashboard}
+        name="RealTimeAnalytics"
+        component={RealTimeAnalyticsDashboard}
         options={{
-          title: 'Analytics Dashboard',
+          title: 'Real-Time Analytics',
           headerShown: false,
         }}
       />
@@ -147,6 +186,148 @@ const AppNavigator = () => {
         component={AnalyticsReportScreen}
         options={{
           title: 'Reports',
+          headerShown: false,
+        }}
+      />
+
+      {/* Admin Screens */}
+      <Stack.Screen
+        name="AdminDashboard"
+        component={AdminDashboardScreen}
+        options={{
+          title: 'Admin Dashboard',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="UserManagement"
+        component={UserManagementScreen}
+        options={{
+          title: 'User Management',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="UserDetail"
+        component={UserDetailScreen}
+        options={{
+          title: 'User Details',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="AdminRouteManagement"
+        component={AdminRouteManagementScreen}
+        options={{
+          title: 'Route Management',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="RouteDetail"
+        component={RouteDetailScreen}
+        options={{
+          title: 'Route Details',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="CreateRoute"
+        component={CreateRouteScreen}
+        options={{
+          title: 'Create Route',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="EditRoute"
+        component={EditRouteScreen}
+        options={{
+          title: 'Edit Route',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="BinManagement"
+        component={BinManagementScreen}
+        options={{
+          title: 'Bin Management',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="EnhancedAnalytics"
+        component={EnhancedAnalyticsDashboard}
+        options={{
+          title: 'Enhanced Analytics',
+          headerShown: false,
+        }}
+      />
+
+      {/* Collector Screens */}
+      <Stack.Screen
+        name="MyRoutes"
+        component={MyRoutesScreen}
+        options={{
+          title: 'My Routes',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="ActiveRoute"
+        component={ActiveRouteScreen}
+        options={{
+          title: 'Active Route',
+          headerShown: false,
+        }}
+      />
+
+      {/* Resident Screens */}
+      <Stack.Screen
+        name="ResidentDashboard"
+        component={ResidentTabNavigator}
+        options={{
+          title: 'My Dashboard',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="CreditPoints"
+        component={CreditPointsScreen}
+        options={{
+          title: 'Credit Points',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="ApplyPoints"
+        component={ApplyPointsScreen}
+        options={{
+          title: 'Apply Points',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PaymentDetails"
+        component={PaymentDetailsScreen}
+        options={{
+          title: 'Payment Details',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PaymentReview"
+        component={PaymentReviewScreen}
+        options={{
+          title: 'Review Payment',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PaymentSuccess"
+        component={PaymentSuccessScreen}
+        options={{
+          title: 'Payment Success',
           headerShown: false,
         }}
       />

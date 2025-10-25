@@ -65,12 +65,37 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin', 'collector'],
-    default: 'user'
+    enum: ['user', 'admin', 'collector', 'resident'],
+    default: 'collector' // Default to collector for backward compatibility
   },
   isActive: {
     type: Boolean,
     default: true
+  },
+  profileImage: {
+    type: String,
+    default: null
+  },
+  address: {
+    type: String,
+    trim: true
+  },
+  accountStatus: {
+    type: String,
+    enum: ['active', 'suspended', 'pending'],
+    default: 'active'
+  },
+  lastLogin: {
+    type: Date
+  },
+  creditPoints: {
+    type: Number,
+    default: 0,
+    min: [0, 'Credit points cannot be negative']
+  },
+  stripeCustomerId: {
+    type: String,
+    default: null
   },
   createdAt: {
     type: Date,
@@ -100,6 +125,45 @@ userSchema.pre('save', function(next) {
 // Compare password method
 userSchema.methods.comparePassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Update last login timestamp
+userSchema.methods.updateLastLogin = function() {
+  this.lastLogin = Date.now();
+  return this.save();
+};
+
+// Earn credit points
+// Rate: 1kg = 10 points, Recyclable waste = 15 points per kg
+userSchema.methods.earnPoints = async function(weight, isRecyclable = false) {
+  const pointsPerKg = isRecyclable ? 15 : 10;
+  const pointsEarned = Math.floor(weight * pointsPerKg);
+  this.creditPoints += pointsEarned;
+  await this.save();
+  return pointsEarned;
+};
+
+// Redeem credit points
+// Conversion rate: 100 points = $5 discount
+// Minimum redemption: 50 points
+userSchema.methods.redeemPoints = async function(pointsToRedeem) {
+  if (pointsToRedeem < 50) {
+    throw new Error('Minimum 50 points required to redeem');
+  }
+  if (this.creditPoints < pointsToRedeem) {
+    throw new Error('Insufficient credit points');
+  }
+  this.creditPoints -= pointsToRedeem;
+  await this.save();
+  
+  // Calculate discount: 100 points = $5
+  const discount = (pointsToRedeem / 100) * 5;
+  return { pointsRedeemed: pointsToRedeem, discount };
+};
+
+// Get credit points balance
+userSchema.methods.getCreditPoints = function() {
+  return this.creditPoints;
 };
 
 module.exports = mongoose.model('User', userSchema);

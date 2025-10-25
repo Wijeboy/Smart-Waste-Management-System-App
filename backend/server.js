@@ -27,6 +27,12 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/bins', require('./routes/bins'));
+app.use('/api/users', require('./routes/users')); // Credit points routes accessible at /api/users
+app.use('/api/admin/users', require('./routes/users'));
+app.use('/api/routes', require('./routes/routes'));
+app.use('/api/admin/routes', require('./routes/routes'));
+app.use('/api/admin/analytics', require('./routes/analytics'));
+app.use('/api/payments', require('./routes/payments')); // Payment routes
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -46,11 +52,17 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-  console.log(`Local:   http://localhost:${PORT}`);
-  console.log(`Network: http://192.168.1.8:${PORT}`);
-  console.log('Server is ready to accept connections from any network interface');
-});
+// Only start server if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    console.log(`Local:   http://localhost:${PORT}`);
+    console.log(`Network: http://192.168.1.8:${PORT}`);
+    console.log('Server is ready to accept connections from any network interface');
+  });
+}
+
+// Export app for testing
+module.exports = app;
