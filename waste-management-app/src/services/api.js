@@ -467,6 +467,52 @@ class ApiService {
       body: JSON.stringify({ pointsToRedeem }),
     });
   }
+
+  // Payment endpoints
+  async getStripeConfig() {
+    return this.request('/payments/config', {
+      method: 'GET',
+    });
+  }
+
+  async createPaymentIntent(paymentData) {
+    return this.request('/payments/create-intent', {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+  }
+
+  async confirmPayment(paymentData) {
+    return this.request('/payments/confirm', {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+  }
+
+  async getPaymentHistory() {
+    return this.request('/payments/history', {
+      method: 'GET',
+    });
+  }
+
+  async getSavedPaymentMethods() {
+    return this.request('/payments/saved-methods', {
+      method: 'GET',
+    });
+  }
+
+  async createStripeCustomer() {
+    return this.request('/payments/customer', {
+      method: 'POST',
+    });
+  }
+
+  async savePaymentMethod(methodData) {
+    return this.request('/payments/save-method', {
+      method: 'POST',
+      body: JSON.stringify(methodData),
+    });
+  }
 }
 
 export default new ApiService();

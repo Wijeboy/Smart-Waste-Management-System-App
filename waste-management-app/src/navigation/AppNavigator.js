@@ -45,6 +45,9 @@ import ActiveRouteScreen from '../screens/Collector/ActiveRouteScreen';
 import ResidentTabNavigator from './ResidentTabNavigator';
 import CreditPointsScreen from '../screens/Resident/CreditPointsScreen';
 import ApplyPointsScreen from '../screens/Resident/ApplyPointsScreen';
+import PaymentDetailsScreen from '../screens/Resident/PaymentDetailsScreen';
+import PaymentReviewScreen from '../screens/Resident/PaymentReviewScreen';
+import PaymentSuccessScreen from '../screens/Resident/PaymentSuccessScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -301,6 +304,30 @@ const AppNavigator = () => {
         component={ApplyPointsScreen}
         options={{
           title: 'Apply Points',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PaymentDetails"
+        component={PaymentDetailsScreen}
+        options={{
+          title: 'Payment Details',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PaymentReview"
+        component={PaymentReviewScreen}
+        options={{
+          title: 'Review Payment',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PaymentSuccess"
+        component={PaymentSuccessScreen}
+        options={{
+          title: 'Payment Success',
           headerShown: false,
         }}
       />

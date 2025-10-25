@@ -107,19 +107,12 @@ const PaymentScreen = ({ navigation, route }) => {
   const handlePayNow = () => {
     const paymentSummary = calculatePaymentSummary(appliedPoints);
     
-    Alert.alert(
-      'Process Payment',
-      `Total Amount: ${formatCurrency(paymentSummary.totalAmount)}\n\nThis is a demo. Payment processing will be implemented in the future.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            // Reset applied points after payment
-            setAppliedPoints(0);
-          },
-        },
-      ]
-    );
+    // Navigate to payment details screen with all necessary data
+    navigation.navigate('PaymentDetails', {
+      amount: paymentSummary.totalAmount,
+      appliedPoints: appliedPoints,
+      paymentSummary: paymentSummary
+    });
   };
 
   // Calculate payment summary

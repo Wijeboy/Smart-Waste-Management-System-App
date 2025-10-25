@@ -93,6 +93,10 @@ const userSchema = new mongoose.Schema({
     default: 0,
     min: [0, 'Credit points cannot be negative']
   },
+  stripeCustomerId: {
+    type: String,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
